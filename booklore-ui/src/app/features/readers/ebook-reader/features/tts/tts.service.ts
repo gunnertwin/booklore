@@ -62,7 +62,7 @@ export class ReaderTtsService {
   private readonly sectionAdvanceDelayMs = 120;
   private readonly terminalPunctuationPattern = /[.!?]["')\]]*$/;
   private readonly abbreviationTerminalPattern =
-    /\b(?:mr|mrs|ms|dr|prof|sr|jr|st|mt|vs|etc|e\.g|i\.e|no|fig|dept|inc|ltd|co)\.$/i;
+    /\b(?:mr|mrs|ms|dr|prof|sr|jr|st|mt|vs|etc|e\.g|i\.e|no|fig|dept|inc|ltd|co)\s*\.$/i;
 
   private readonly noveltyVoiceNames = [
     'albert',
@@ -858,7 +858,7 @@ export class ReaderTtsService {
         && this.shouldMergeWithPrevious(previous.text, normalized.text);
 
       if (canMerge) {
-        previous.text = `${previous.text} ${normalized.text}`.replace(/\s+/g, ' ').trim();
+        previous.text = this.concatenateSegmentText(previous.text, normalized.text);
         if (!previous.lang && normalized.lang) {
           previous.lang = normalized.lang;
         }
@@ -884,7 +884,7 @@ export class ReaderTtsService {
       return true;
     }
 
-    if (nextText.length <= this.minStandaloneSegmentCharacters && /^[0-9a-z(]/.test(nextText)) {
+    if (nextText.length <= this.minStandaloneSegmentCharacters && /^[0-9a-z(]/i.test(nextText)) {
       return true;
     }
 
@@ -898,7 +898,8 @@ export class ReaderTtsService {
   private endsWithAbbreviation(text: string): boolean {
     const normalized = text
       .trim()
-      .replace(/["')\]]+$/g, '')
+      .replace(/\s+([.!?])/g, '$1')
+      .replace(/["'’”)\]\}]+$/g, '')
       .toLowerCase();
 
     if (this.abbreviationTerminalPattern.test(normalized)) {
@@ -914,6 +915,28 @@ export class ReaderTtsService {
     }
 
     return false;
+  }
+
+  private concatenateSegmentText(previousText: string, nextText: string): string {
+    const left = previousText.replace(/\s+$/g, '');
+    const right = nextText.replace(/^\s+/g, '');
+
+    if (!left) {
+      return right;
+    }
+    if (!right) {
+      return left;
+    }
+
+    if (/^[,.;:!?)\]\}]/.test(right)) {
+      return `${left}${right}`;
+    }
+
+    if (/[(\[{]$/.test(left)) {
+      return `${left}${right}`;
+    }
+
+    return `${left} ${right}`;
   }
 
   private async resolveNextSsml(): Promise<string | undefined> {
