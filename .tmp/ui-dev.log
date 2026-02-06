@@ -1,6 +1,0 @@
-
-> booklore@0.0.0 start
-> ng serve --host 0.0.0.0 --port 4200
-
-Node.js version v25.6.0 detected.
-Odd numbered Node.js versions will not enter LTS status and should not be used for production. For more information, please see https://nodejs.org/en/about/previous-releases/.
