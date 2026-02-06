@@ -61,6 +61,8 @@ export class ReaderTtsService {
   private readonly sectionAdvanceAttempts = 12;
   private readonly sectionAdvanceDelayMs = 120;
   private readonly terminalPunctuationPattern = /[.!?]["')\]]*$/;
+  private readonly abbreviationTerminalPattern =
+    /\b(?:mr|mrs|ms|dr|prof|sr|jr|st|mt|vs|etc|e\.g|i\.e|no|fig|dept|inc|ltd|co)\.$/i;
 
   private readonly noveltyVoiceNames = [
     'albert',
@@ -874,6 +876,10 @@ export class ReaderTtsService {
       return true;
     }
 
+    if (this.endsWithAbbreviation(previousText)) {
+      return true;
+    }
+
     if (/^[,;:.!?)]/.test(nextText)) {
       return true;
     }
@@ -887,6 +893,27 @@ export class ReaderTtsService {
 
   private endsWithTerminalPunctuation(text: string): boolean {
     return this.terminalPunctuationPattern.test(text.trim());
+  }
+
+  private endsWithAbbreviation(text: string): boolean {
+    const normalized = text
+      .trim()
+      .replace(/["')\]]+$/g, '')
+      .toLowerCase();
+
+    if (this.abbreviationTerminalPattern.test(normalized)) {
+      return true;
+    }
+
+    if (/\b[a-z]\.$/.test(normalized)) {
+      return true;
+    }
+
+    if (/\b(?:[a-z]\.){2,}$/.test(normalized)) {
+      return true;
+    }
+
+    return false;
   }
 
   private async resolveNextSsml(): Promise<string | undefined> {
