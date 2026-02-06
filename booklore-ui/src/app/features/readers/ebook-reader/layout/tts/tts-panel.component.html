@@ -1,5 +1,5 @@
 <div class="quick-settings-overlay tts-overlay" (click)="onOverlayClick()">
-  <div class="quick-settings-panel tts-panel" (click)="$event.stopPropagation()">
+  <div class="quick-settings-panel tts-panel" (click)="$event.stopPropagation(); onPanelClick()">
     <div class="pointer"></div>
 
     <div class="panel-body">
@@ -17,15 +17,33 @@
           <div class="control">
             <label>Engine</label>
             <div class="control-right">
-              <div class="select-shell">
-                <select class="voice-select" [value]="state.providerId" (change)="onProviderChange($event)">
-                  @for (provider of state.providers; track provider.id) {
-                    <option [value]="provider.id" [disabled]="!provider.available">
-                      {{ provider.label }}{{ provider.available ? '' : ' (Not Configured)' }}
-                    </option>
-                  }
-                </select>
-                <app-reader-icon name="chevron-down" [size]="14" class="select-icon"></app-reader-icon>
+              <div class="dropdown">
+                <button
+                  class="dropdown-trigger"
+                  type="button"
+                  (click)="onToggleProviderMenu($event)"
+                  [attr.aria-expanded]="providerMenuOpen">
+                  <span class="dropdown-value">{{ activeProviderLabel }}</span>
+                  <app-reader-icon name="chevron-down" [size]="14" class="select-icon" [class.open]="providerMenuOpen"></app-reader-icon>
+                </button>
+                @if (providerMenuOpen) {
+                  <div class="dropdown-menu" (click)="$event.stopPropagation()">
+                    @for (provider of state.providers; track provider.id) {
+                      <button
+                        class="dropdown-item"
+                        type="button"
+                        [class.selected]="provider.id === state.providerId"
+                        [class.disabled]="!provider.available"
+                        [disabled]="!provider.available"
+                        (click)="onSelectProvider(provider)">
+                        <span>{{ provider.label }}</span>
+                        @if (!provider.available) {
+                          <span class="item-meta">Not Configured</span>
+                        }
+                      </button>
+                    }
+                  </div>
+                }
               </div>
             </div>
           </div>
@@ -34,16 +52,30 @@
         <div class="control">
           <label>Voice</label>
           <div class="control-right">
-            <div class="select-shell">
-              <select class="voice-select" [value]="state.selectedVoiceId || ''" (change)="onVoiceChange($event)" [disabled]="state.loadingVoices">
-                @if (!state.voices.length) {
-                  <option value="">No voices available</option>
-                }
-                @for (voice of state.voices; track voice.id) {
-                  <option [value]="voice.id">{{ voice.name }} ({{ voice.lang || 'default' }})</option>
-                }
-              </select>
-              <app-reader-icon name="chevron-down" [size]="14" class="select-icon"></app-reader-icon>
+            <div class="dropdown">
+              <button
+                class="dropdown-trigger"
+                type="button"
+                (click)="onToggleVoiceMenu($event)"
+                [disabled]="state.loadingVoices || !visibleVoices.length"
+                [attr.aria-expanded]="voiceMenuOpen">
+                <span class="dropdown-value">{{ activeVoiceLabel }}</span>
+                <app-reader-icon name="chevron-down" [size]="14" class="select-icon" [class.open]="voiceMenuOpen"></app-reader-icon>
+              </button>
+              @if (voiceMenuOpen) {
+                <div class="dropdown-menu voice-menu" (click)="$event.stopPropagation()">
+                  @for (voice of visibleVoices; track voice.id) {
+                    <button
+                      class="dropdown-item"
+                      type="button"
+                      [class.selected]="voice.id === state.selectedVoiceId"
+                      (click)="onSelectVoice(voice.id)">
+                      <span>{{ voice.name }}</span>
+                      <span class="item-meta">{{ voice.lang || 'default' }}</span>
+                    </button>
+                  }
+                </div>
+              }
             </div>
           </div>
         </div>

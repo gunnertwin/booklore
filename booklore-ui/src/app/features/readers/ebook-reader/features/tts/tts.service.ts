@@ -277,27 +277,50 @@ export class ReaderTtsService {
     void this.loadVoices();
   }
 
-  private async bootstrap(): Promise<void> {
+  refreshProvidersAndVoices(): void {
+    void this.refreshProvidersAndVoicesInternal();
+  }
+
+  private async refreshProvidersAndVoicesInternal(): Promise<void> {
     await this.loadProviders();
     await this.loadVoices();
   }
 
+  private async bootstrap(): Promise<void> {
+    await this.refreshProvidersAndVoicesInternal();
+  }
+
   private async loadProviders(): Promise<void> {
-    const providers: ReaderTtsProviderOption[] = [this.createBrowserProvider()];
+    const providersById = new Map<string, ReaderTtsProviderOption>();
+    providersById.set(this.browserProviderId, this.createBrowserProvider());
+
+    for (const provider of this.currentState.providers) {
+      if (provider.id !== this.browserProviderId) {
+        providersById.set(provider.id, provider);
+      }
+    }
+
+    let providersDiscovered = false;
 
     try {
       const response = await firstValueFrom(this.cloudApi.getProviders());
       const cloudProviders = response.providers.map(provider => this.mapCloudProvider(provider));
-      providers.push(...cloudProviders);
+      for (const provider of cloudProviders) {
+        providersById.set(provider.id, provider);
+      }
+      providersDiscovered = true;
     } catch {
       // Keep browser-only mode when cloud providers are unavailable.
     }
 
-    const uniqueProviders = providers.filter((provider, index, list) =>
-      list.findIndex(p => p.id === provider.id) === index
-    );
+    const uniqueProviders = Array.from(providersById.values());
 
     let providerId = this.currentState.providerId;
+    const storedProviderId = this.getStorage()?.getItem(this.providerStorageKey);
+    if (storedProviderId && uniqueProviders.some(provider => provider.id === storedProviderId)) {
+      providerId = storedProviderId;
+    }
+
     if (!uniqueProviders.some(provider => provider.id === providerId && provider.available)) {
       providerId = uniqueProviders.find(provider => provider.available)?.id ?? this.browserProviderId;
     }
@@ -311,7 +334,9 @@ export class ReaderTtsService {
       supported: uniqueProviders.some(provider => provider.available)
     });
 
-    this.getStorage()?.setItem(this.providerStorageKey, providerId);
+    if (providersDiscovered || providerId !== this.browserProviderId) {
+      this.getStorage()?.setItem(this.providerStorageKey, providerId);
+    }
   }
 
   private async loadVoices(): Promise<void> {
