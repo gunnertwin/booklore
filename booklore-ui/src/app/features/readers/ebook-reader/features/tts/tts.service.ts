@@ -489,9 +489,12 @@ export class ReaderTtsService {
   private async jump(direction: 'next' | 'prev'): Promise<void> {
     try {
       await this.ensureReady();
-      const ssml = direction === 'next'
-        ? await this.resolveNextSsml()
-        : this.getTtsController()?.prev?.();
+      if (direction === 'next') {
+        await this.jumpToNextSentence();
+        return;
+      }
+
+      const ssml = this.getTtsController()?.prev?.();
       this.startFromSsml(ssml);
     } catch {
       this.handleError('Unable to change TTS position.');
@@ -890,6 +893,20 @@ export class ReaderTtsService {
     return restarted;
   }
 
+  private async jumpToNextSentence(): Promise<void> {
+    if (this.currentSegments.length && this.currentSegmentIndex < this.currentSegments.length - 1) {
+      this.cancelSpeech(true, false);
+      this.currentSegmentIndex += 1;
+      const generation = this.playbackGeneration;
+      this.patchState({isPlaying: true, isPaused: false, error: null});
+      this.speakCurrentSegment(generation);
+      return;
+    }
+
+    const nextSsml = await this.resolveNextSsml();
+    this.startFromSsml(nextSsml);
+  }
+
   private async advanceToAdjacentSection(direction: 'next' | 'prev'): Promise<boolean> {
     const beforeIndex = this.getCurrentSectionIndex();
     if (direction === 'next') {
@@ -1071,14 +1088,16 @@ export class ReaderTtsService {
     return this.getStorage()?.getItem(`${this.voiceStorageKeyPrefix}${providerId}`) ?? null;
   }
 
-  private cancelSpeech(incrementGeneration: boolean): void {
+  private cancelSpeech(incrementGeneration: boolean, clearQueue: boolean = true): void {
     if (incrementGeneration) {
       this.playbackGeneration += 1;
     }
 
-    this.currentSegments = [];
-    this.currentSegmentIndex = 0;
-    this.lastChunkSignature = null;
+    if (clearQueue) {
+      this.currentSegments = [];
+      this.currentSegmentIndex = 0;
+      this.lastChunkSignature = null;
+    }
 
     if (this.speech) {
       this.speech.cancel();
