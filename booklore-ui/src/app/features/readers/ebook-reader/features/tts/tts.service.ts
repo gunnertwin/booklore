@@ -128,6 +128,7 @@ export class ReaderTtsService {
   private initialized = false;
   private voicesLoadGeneration = 0;
   private playbackGeneration = 0;
+  private browserPauseToken = 0;
   private currentSegments: TtsSegment[] = [];
   private currentSegmentIndex = 0;
   private activeAudioUrl: string | null = null;
@@ -201,7 +202,9 @@ export class ReaderTtsService {
       return;
     }
 
-    if (!this.currentState.isPlaying) {
+    const activelyPlaying = this.isActivelyPlaying();
+    const treatAsPlaying = this.currentState.isPlaying || activelyPlaying;
+    if (!treatAsPlaying) {
       this.startFromCurrent();
       return;
     }
@@ -216,11 +219,9 @@ export class ReaderTtsService {
     }
 
     if (this.currentState.isPaused) {
-      this.speech.resume();
-      this.patchState({isPaused: false, error: null});
+      this.resumeBrowserPlayback();
     } else {
-      this.speech.pause();
-      this.patchState({isPaused: true, error: null});
+      this.pauseBrowserPlayback();
     }
   }
 
@@ -504,12 +505,13 @@ export class ReaderTtsService {
   private async jumpSentence(direction: 'next' | 'prev'): Promise<void> {
     try {
       await this.ensureReady();
+      const keepPaused = this.shouldKeepPausedDuringNavigation();
       if (direction === 'next') {
-        await this.jumpToNextSentence();
+        await this.jumpToNextSentence(keepPaused);
         return;
       }
 
-      await this.jumpToPreviousSentence();
+      await this.jumpToPreviousSentence(keepPaused);
     } catch {
       this.handleError('Unable to change TTS position.');
     }
@@ -518,10 +520,11 @@ export class ReaderTtsService {
   private async jumpParagraph(direction: 'next' | 'prev'): Promise<void> {
     try {
       await this.ensureReady();
+      const keepPaused = this.shouldKeepPausedDuringNavigation();
       const ssml = direction === 'next'
         ? await this.resolveNextSsml()
         : await this.resolvePreviousSsml();
-      this.startFromSsml(ssml);
+      this.startFromSsml(ssml, !keepPaused);
     } catch {
       this.handleError('Unable to change TTS position.');
     }
@@ -536,13 +539,18 @@ export class ReaderTtsService {
     this.patchState({isReady: true, error: null});
   }
 
-  private startFromSsml(ssml?: string): void {
+  private startFromSsml(ssml?: string, autoplay: boolean = true): void {
     const segments = ssml ? this.parseSsmlSegments(ssml) : [];
     const signature = ssml ? this.getSsmlSignature(ssml) : null;
-    this.startFromSegments(segments, 0, signature);
+    this.startFromSegments(segments, 0, signature, autoplay);
   }
 
-  private startFromSegments(segments: TtsSegment[], startIndex: number, signature: string | null): void {
+  private startFromSegments(
+    segments: TtsSegment[],
+    startIndex: number,
+    signature: string | null,
+    autoplay: boolean
+  ): void {
     this.cancelSpeech(true);
 
     if (!segments.length) {
@@ -555,6 +563,12 @@ export class ReaderTtsService {
     this.lastChunkSignature = signature;
     this.currentSegments = segments;
     this.currentSegmentIndex = clampedIndex;
+
+    if (!autoplay) {
+      this.patchState({isPlaying: true, isPaused: true, error: null});
+      this.applyCurrentMark();
+      return;
+    }
 
     const generation = this.playbackGeneration;
     this.patchState({isPlaying: true, isPaused: false, error: null});
@@ -1010,10 +1024,15 @@ export class ReaderTtsService {
   }
 
 
-  private async jumpToNextSentence(): Promise<void> {
+  private async jumpToNextSentence(keepPaused: boolean): Promise<void> {
     if (this.currentSegments.length && this.currentSegmentIndex < this.currentSegments.length - 1) {
       this.cancelSpeech(true, false);
       this.currentSegmentIndex += 1;
+      if (keepPaused) {
+        this.patchState({isPlaying: true, isPaused: true, error: null});
+        this.applyCurrentMark();
+        return;
+      }
       const generation = this.playbackGeneration;
       this.patchState({isPlaying: true, isPaused: false, error: null});
       this.speakCurrentSegment(generation);
@@ -1021,13 +1040,18 @@ export class ReaderTtsService {
     }
 
     const nextSsml = await this.resolveNextSsml();
-    this.startFromSsml(nextSsml);
+    this.startFromSsml(nextSsml, !keepPaused);
   }
 
-  private async jumpToPreviousSentence(): Promise<void> {
+  private async jumpToPreviousSentence(keepPaused: boolean): Promise<void> {
     if (this.currentSegments.length && this.currentSegmentIndex > 0) {
       this.cancelSpeech(true, false);
       this.currentSegmentIndex -= 1;
+      if (keepPaused) {
+        this.patchState({isPlaying: true, isPaused: true, error: null});
+        this.applyCurrentMark();
+        return;
+      }
       const generation = this.playbackGeneration;
       this.patchState({isPlaying: true, isPaused: false, error: null});
       this.speakCurrentSegment(generation);
@@ -1040,15 +1064,85 @@ export class ReaderTtsService {
       return;
     }
 
+    const segments = this.parseSsmlSegments(previousSsml);
+    const signature = this.getSsmlSignature(previousSsml);
     this.cancelSpeech(true);
-    this.lastChunkSignature = this.getSsmlSignature(previousSsml);
-    this.currentSegments = this.parseSsmlSegments(previousSsml);
+    this.lastChunkSignature = signature;
+    this.currentSegments = segments;
     if (!this.currentSegments.length) {
       this.startFromSsml(undefined);
       return;
     }
 
     this.currentSegmentIndex = this.currentSegments.length - 1;
+    if (keepPaused) {
+      this.patchState({isPlaying: true, isPaused: true, error: null});
+      this.applyCurrentMark();
+      return;
+    }
+    const generation = this.playbackGeneration;
+    this.patchState({isPlaying: true, isPaused: false, error: null});
+    this.speakCurrentSegment(generation);
+  }
+
+  private shouldKeepPausedDuringNavigation(): boolean {
+    return this.currentState.isPlaying && this.currentState.isPaused;
+  }
+
+  private applyCurrentMark(): void {
+    const mark = this.currentSegments[this.currentSegmentIndex]?.mark;
+    if (mark) {
+      this.getTtsController()?.setMark?.(mark);
+    }
+  }
+
+  private isActivelyPlaying(): boolean {
+    if (this.isCloudProviderSelected()) {
+      const audio = this.audioElement;
+      return !!audio && !audio.paused && !audio.ended;
+    }
+
+    const speech = this.speech;
+    return !!speech && (speech.speaking || speech.pending);
+  }
+
+  private pauseBrowserPlayback(): void {
+    if (!this.speech) {
+      return;
+    }
+
+    const token = ++this.browserPauseToken;
+    this.patchState({isPlaying: true, isPaused: true, error: null});
+    this.speech.pause();
+    void this.ensureBrowserPauseApplied(token);
+  }
+
+  private async ensureBrowserPauseApplied(token: number): Promise<void> {
+    await this.sleep(120);
+    if (token !== this.browserPauseToken || !this.currentState.isPaused || !this.speech) {
+      return;
+    }
+
+    // Some mobile engines ignore pause() intermittently; cancel+freeze keeps paused state consistent.
+    if (this.speech.speaking && !this.speech.paused) {
+      this.playbackGeneration += 1;
+      this.speech.cancel();
+      this.applyCurrentMark();
+    }
+  }
+
+  private resumeBrowserPlayback(): void {
+    if (!this.speech) {
+      return;
+    }
+
+    this.browserPauseToken += 1;
+    if (this.speech.paused && this.speech.speaking) {
+      this.speech.resume();
+      this.patchState({isPlaying: true, isPaused: false, error: null});
+      return;
+    }
+
     const generation = this.playbackGeneration;
     this.patchState({isPlaying: true, isPaused: false, error: null});
     this.speakCurrentSegment(generation);
