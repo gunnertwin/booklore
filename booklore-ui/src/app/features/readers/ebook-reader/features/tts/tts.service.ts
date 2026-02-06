@@ -56,6 +56,11 @@ export class ReaderTtsService {
   private readonly rateStorageKey = 'booklore.reader.tts.rate';
   private readonly providerStorageKey = 'booklore.reader.tts.provider';
   private readonly voiceStorageKeyPrefix = 'booklore.reader.tts.voice.';
+  private readonly maxSegmentCharacters = 900;
+  private readonly minStandaloneSegmentCharacters = 32;
+  private readonly sectionAdvanceAttempts = 12;
+  private readonly sectionAdvanceDelayMs = 120;
+  private readonly terminalPunctuationPattern = /[.!?]["')\]]*$/;
 
   private readonly noveltyVoiceNames = [
     'albert',
@@ -124,6 +129,7 @@ export class ReaderTtsService {
   private currentSegments: TtsSegment[] = [];
   private currentSegmentIndex = 0;
   private activeAudioUrl: string | null = null;
+  private lastChunkSignature: string | null = null;
 
   constructor() {
     const storage = this.getStorage();
@@ -483,8 +489,9 @@ export class ReaderTtsService {
   private async jump(direction: 'next' | 'prev'): Promise<void> {
     try {
       await this.ensureReady();
-      const tts = this.getTtsController();
-      const ssml = direction === 'next' ? tts?.next?.() : tts?.prev?.();
+      const ssml = direction === 'next'
+        ? await this.resolveNextSsml()
+        : this.getTtsController()?.prev?.();
       this.startFromSsml(ssml);
     } catch {
       this.handleError('Unable to change TTS position.');
@@ -504,14 +511,17 @@ export class ReaderTtsService {
     this.cancelSpeech(true);
 
     if (!ssml) {
+      this.lastChunkSignature = null;
       this.patchState({isPlaying: false, isPaused: false});
       return;
     }
 
+    this.lastChunkSignature = this.getSsmlSignature(ssml);
     this.currentSegments = this.parseSsmlSegments(ssml);
     this.currentSegmentIndex = 0;
 
     if (this.currentSegments.length === 0) {
+      this.lastChunkSignature = null;
       this.patchState({isPlaying: false, isPaused: false});
       return;
     }
@@ -699,12 +709,19 @@ export class ReaderTtsService {
   }
 
   private advanceToNextChunk(generation: number): void {
+    void this.advanceToNextChunkInternal(generation);
+  }
+
+  private async advanceToNextChunkInternal(generation: number): Promise<void> {
     if (generation !== this.playbackGeneration) {
       return;
     }
 
-    const tts = this.getTtsController();
-    const nextSsml = tts?.next?.();
+    const nextSsml = await this.resolveNextSsml();
+    if (generation !== this.playbackGeneration) {
+      return;
+    }
+
     if (!nextSsml) {
       this.patchState({
         isPlaying: false,
@@ -714,6 +731,7 @@ export class ReaderTtsService {
     }
 
     this.currentSegments = this.parseSsmlSegments(nextSsml);
+    this.lastChunkSignature = this.getSsmlSignature(nextSsml);
     this.currentSegmentIndex = 0;
     if (this.currentSegments.length === 0) {
       this.advanceToNextChunk(generation);
@@ -733,7 +751,7 @@ export class ReaderTtsService {
       return plainText ? [{mark: null, text: plainText}] : [];
     }
 
-    const segments: TtsSegment[] = [];
+    const rawSegments: TtsSegment[] = [];
     let currentMark: string | null = null;
     let buffer = '';
     let bufferLang: string | undefined;
@@ -741,7 +759,7 @@ export class ReaderTtsService {
     const flush = () => {
       const normalized = buffer.replace(/\s+/g, ' ').trim();
       if (normalized) {
-        segments.push({mark: currentMark, text: normalized, lang: bufferLang});
+        rawSegments.push({mark: currentMark, text: normalized, lang: bufferLang});
       }
       buffer = '';
       bufferLang = undefined;
@@ -787,7 +805,122 @@ export class ReaderTtsService {
     walk(root, undefined);
     flush();
 
-    return segments;
+    return this.mergeSegments(rawSegments);
+  }
+
+  private mergeSegments(segments: TtsSegment[]): TtsSegment[] {
+    const merged: TtsSegment[] = [];
+
+    for (const segment of segments) {
+      const text = segment.text.replace(/\s+/g, ' ').trim();
+      if (!text) {
+        continue;
+      }
+
+      const normalized: TtsSegment = {
+        mark: segment.mark ?? null,
+        text,
+        lang: segment.lang
+      };
+
+      const previous = merged[merged.length - 1];
+      if (!previous) {
+        merged.push(normalized);
+        continue;
+      }
+
+      const combinedLength = previous.text.length + 1 + normalized.text.length;
+      const canMerge = combinedLength <= this.maxSegmentCharacters
+        && this.shouldMergeWithPrevious(previous.text, normalized.text);
+
+      if (canMerge) {
+        previous.text = `${previous.text} ${normalized.text}`.replace(/\s+/g, ' ').trim();
+        if (!previous.lang && normalized.lang) {
+          previous.lang = normalized.lang;
+        }
+        continue;
+      }
+
+      merged.push(normalized);
+    }
+
+    return merged;
+  }
+
+  private shouldMergeWithPrevious(previousText: string, nextText: string): boolean {
+    if (!this.endsWithTerminalPunctuation(previousText)) {
+      return true;
+    }
+
+    if (/^[,;:.!?)]/.test(nextText)) {
+      return true;
+    }
+
+    if (nextText.length <= this.minStandaloneSegmentCharacters && /^[0-9a-z(]/.test(nextText)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private endsWithTerminalPunctuation(text: string): boolean {
+    return this.terminalPunctuationPattern.test(text.trim());
+  }
+
+  private async resolveNextSsml(): Promise<string | undefined> {
+    const directNext = this.getTtsController()?.next?.();
+    if (directNext) {
+      return directNext;
+    }
+
+    const moved = await this.advanceToAdjacentSection('next');
+    if (!moved) {
+      return undefined;
+    }
+
+    const restarted = this.getTtsController()?.start?.();
+    if (!restarted) {
+      return undefined;
+    }
+
+    if (this.lastChunkSignature && this.getSsmlSignature(restarted) === this.lastChunkSignature) {
+      return undefined;
+    }
+
+    return restarted;
+  }
+
+  private async advanceToAdjacentSection(direction: 'next' | 'prev'): Promise<boolean> {
+    const beforeIndex = this.getCurrentSectionIndex();
+    if (direction === 'next') {
+      this.viewManager.next();
+    } else {
+      this.viewManager.prev();
+    }
+
+    for (let attempt = 0; attempt < this.sectionAdvanceAttempts; attempt++) {
+      await this.sleep(this.sectionAdvanceDelayMs);
+      const afterIndex = this.getCurrentSectionIndex();
+      if (beforeIndex == null || afterIndex == null || afterIndex !== beforeIndex) {
+        await firstValueFrom(this.viewManager.initTts('sentence'));
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private getCurrentSectionIndex(): number | null {
+    const index = this.viewManager.getRenderer()?.getContents?.()?.[0]?.index;
+    return typeof index === 'number' ? index : null;
+  }
+
+  private getSsmlSignature(ssml: string): string {
+    return this.stripTags(ssml).replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   private resolveBrowserVoice(segmentLang?: string): SpeechSynthesisVoice | null {
@@ -945,6 +1078,7 @@ export class ReaderTtsService {
 
     this.currentSegments = [];
     this.currentSegmentIndex = 0;
+    this.lastChunkSignature = null;
 
     if (this.speech) {
       this.speech.cancel();
