@@ -127,11 +127,11 @@ const ICONS: Record<ReaderIconName, IconPath[]> = {
     {d: 'M18.5 6a9 9 0 0 1 0 12'}
   ],
   'play': [
-    {d: 'M8 5v14l11-7z'}
+    {d: 'M5 3l14 9-14 9V3z'}
   ],
   'pause': [
-    {d: 'M8 5h3v14H8z'},
-    {d: 'M13 5h3v14h-3z'}
+    {d: 'M6,4 L6,20', type: 'line'},
+    {d: 'M18,4 L18,20', type: 'line'}
   ],
   'stop': [
     {d: 'M7 7h10v10H7z'}
