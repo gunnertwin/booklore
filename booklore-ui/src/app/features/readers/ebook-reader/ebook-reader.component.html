@@ -91,6 +91,10 @@
   }
 
   @if (showTtsSettings) {
-    <app-reader-tts-panel (close)="showTtsSettings = false"></app-reader-tts-panel>
+    <app-reader-tts-panel
+      [enabled]="ttsEnabled"
+      (enabledChange)="onTtsEnabledChange($event)"
+      (close)="showTtsSettings = false">
+    </app-reader-tts-panel>
   }
 </div>

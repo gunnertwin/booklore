@@ -410,7 +410,7 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
     } else if (action.type === 'tts') {
       const selection = this.selectionService.getCurrentSelection();
       if (selection) {
-        this.ttsEnabled = true;
+        this.setTtsEnabled(true);
         this.ttsControlsCollapsed = false;
         this.showTtsSettings = false;
         this.ttsService.startFromSelection(selection.range);
@@ -444,9 +444,13 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
     this.ttsControlsCollapsed = false;
   }
 
+  onTtsEnabledChange(enabled: boolean): void {
+    this.setTtsEnabled(enabled);
+  }
+
   private toggleTtsMode(): void {
     if (!this.ttsEnabled) {
-      this.ttsEnabled = true;
+      this.setTtsEnabled(true);
       this.ttsControlsCollapsed = false;
       this.showTtsSettings = true;
       return;
@@ -469,5 +473,19 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
     if (this.ttsEnabled && this.ttsControlsCollapsed) {
       this.ttsControlsCollapsed = false;
     }
+  }
+
+  private setTtsEnabled(enabled: boolean): void {
+    this.ttsEnabled = enabled;
+
+    if (!enabled) {
+      this.ttsService.stop();
+      this.ttsControlsCollapsed = true;
+      this.showTtsSettings = false;
+      this.selectionService.hidePopup();
+      return;
+    }
+
+    this.ttsControlsCollapsed = false;
   }
 }

@@ -10,7 +10,23 @@
         </button>
       </div>
 
-      @if (!state.supported) {
+      <div class="control">
+        <label>Enabled</label>
+        <div class="control-right">
+          <button
+            class="switch"
+            type="button"
+            [class.active]="enabled"
+            [attr.aria-pressed]="enabled"
+            (click)="onToggleEnabled($event)">
+            <span class="slider"></span>
+          </button>
+        </div>
+      </div>
+
+      @if (!enabled) {
+        <div class="tts-message">Read aloud is turned off.</div>
+      } @else if (!state.supported) {
         <div class="tts-message">Text-to-speech is not available. Enable browser speech or configure a cloud provider.</div>
       } @else {
         @if (showProviderSelector) {

@@ -478,7 +478,10 @@ export class ReaderTtsService {
     try {
       await this.ensureReady();
       const tts = this.getTtsController();
-      const ssml = tts?.start?.();
+      const currentRange = this.getCurrentReadingRange();
+      const ssml = currentRange
+        ? (tts?.from?.(currentRange) ?? tts?.resume?.() ?? tts?.start?.())
+        : (tts?.resume?.() ?? tts?.start?.());
       this.startFromSsml(ssml);
     } catch {
       this.handleError('Unable to start text-to-speech.');
@@ -1054,6 +1057,16 @@ export class ReaderTtsService {
     return typeof index === 'number' ? index : null;
   }
 
+  private getCurrentReadingRange(): Range | null {
+    const view = this.viewManager.getView();
+    const locationRange = view?.lastLocation?.range;
+    if (this.isRange(locationRange)) {
+      return locationRange.cloneRange();
+    }
+
+    return null;
+  }
+
   private getSsmlSignature(ssml: string): string {
     return this.stripTags(ssml).replace(/\s+/g, ' ').trim().toLowerCase();
   }
@@ -1262,6 +1275,10 @@ export class ReaderTtsService {
 
   private getTtsController(): any | null {
     return this.viewManager.getView()?.tts ?? null;
+  }
+
+  private isRange(value: unknown): value is Range {
+    return typeof Range !== 'undefined' && value instanceof Range;
   }
 
   private getVoiceId(voice: SpeechSynthesisVoice): string {

@@ -1,4 +1,4 @@
-import {Component, EventEmitter, OnInit, Output, inject} from '@angular/core';
+import {Component, EventEmitter, Input, OnInit, Output, inject} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {ReaderIconComponent} from '../../shared/icon.component';
 import {ReaderTtsProviderOption, ReaderTtsService, ReaderTtsVoice} from '../../features/tts/tts.service';
@@ -13,7 +13,9 @@ import {ReaderTtsProviderOption, ReaderTtsService, ReaderTtsVoice} from '../../f
 export class ReaderTtsPanelComponent implements OnInit {
   private ttsService = inject(ReaderTtsService);
 
+  @Input() enabled = true;
   @Output() close = new EventEmitter<void>();
+  @Output() enabledChange = new EventEmitter<boolean>();
   providerMenuOpen = false;
   voiceMenuOpen = false;
 
@@ -48,12 +50,18 @@ export class ReaderTtsPanelComponent implements OnInit {
   }
 
   onToggleProviderMenu(event: Event): void {
+    if (!this.enabled) {
+      return;
+    }
     event.stopPropagation();
     this.voiceMenuOpen = false;
     this.providerMenuOpen = !this.providerMenuOpen;
   }
 
   onToggleVoiceMenu(event: Event): void {
+    if (!this.enabled) {
+      return;
+    }
     event.stopPropagation();
     if (this.state.loadingVoices || !this.visibleVoices.length) {
       return;
@@ -63,6 +71,10 @@ export class ReaderTtsPanelComponent implements OnInit {
   }
 
   onSelectProvider(provider: ReaderTtsProviderOption): void {
+    if (!this.enabled) {
+      this.providerMenuOpen = false;
+      return;
+    }
     if (!provider.available || provider.id === this.state.providerId) {
       this.providerMenuOpen = false;
       return;
@@ -73,8 +85,19 @@ export class ReaderTtsPanelComponent implements OnInit {
   }
 
   onSelectVoice(voiceId: string): void {
+    if (!this.enabled) {
+      this.voiceMenuOpen = false;
+      return;
+    }
     this.ttsService.selectVoice(voiceId);
     this.voiceMenuOpen = false;
+  }
+
+  onToggleEnabled(event: Event): void {
+    event.stopPropagation();
+    this.providerMenuOpen = false;
+    this.voiceMenuOpen = false;
+    this.enabledChange.emit(!this.enabled);
   }
 
   onPanelClick(): void {
@@ -83,34 +106,58 @@ export class ReaderTtsPanelComponent implements OnInit {
   }
 
   onTogglePlayPause(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.togglePlayPause();
   }
 
   onStop(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.stop();
   }
 
   onPrevious(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.playPrevious();
   }
 
   onNext(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.playNext();
   }
 
   onPreviousParagraph(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.playPreviousParagraph();
   }
 
   onNextParagraph(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.playNextParagraph();
   }
 
   onDecreaseRate(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.setRate(this.state.rate - 0.1);
   }
 
   onIncreaseRate(): void {
+    if (!this.enabled) {
+      return;
+    }
     this.ttsService.setRate(this.state.rate + 0.1);
   }
 
