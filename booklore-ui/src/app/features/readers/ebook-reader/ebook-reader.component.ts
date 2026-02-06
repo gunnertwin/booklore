@@ -476,7 +476,6 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
     if (!enabled) {
       this.ttsService.stop();
       this.ttsControlsCollapsed = true;
-      this.showTtsSettings = false;
       this.selectionService.hidePopup();
       return;
     }

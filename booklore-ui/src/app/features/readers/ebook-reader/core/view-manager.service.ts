@@ -156,7 +156,7 @@ export class ReaderViewManagerService {
     const highlight = (range: Range) => {
       const renderer = this.view?.renderer;
       if (renderer?.scrollToAnchor) {
-        renderer.scrollToAnchor(range, false);
+        renderer.scrollToAnchor(range, true);
       }
     };
 

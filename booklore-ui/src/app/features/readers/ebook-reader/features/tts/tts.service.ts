@@ -249,6 +249,7 @@ export class ReaderTtsService {
 
   stop(): void {
     this.cancelSpeech(true);
+    this.viewManager.clearSelection();
     this.patchState({
       isPlaying: false,
       isPaused: false,

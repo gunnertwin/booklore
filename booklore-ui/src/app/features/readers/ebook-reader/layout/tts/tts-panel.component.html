@@ -118,8 +118,8 @@
           <button class="transport-btn primary" (click)="onTogglePlayPause()" [title]="state.isPlaying && !state.isPaused ? 'Pause' : 'Play'">
             <app-reader-icon [name]="state.isPlaying && !state.isPaused ? 'pause' : 'play'" [size]="18"></app-reader-icon>
           </button>
-          <button class="transport-btn" (click)="onStop()" title="Stop and reset">
-            <app-reader-icon name="close" [size]="15"></app-reader-icon>
+          <button class="transport-btn" (click)="onStop()" title="Stop and clear highlight">
+            <app-reader-icon name="stop" [size]="16"></app-reader-icon>
           </button>
           <button class="transport-btn" (click)="onNext()" title="Next sentence">
             <app-reader-icon name="chevron-right" [size]="18"></app-reader-icon>

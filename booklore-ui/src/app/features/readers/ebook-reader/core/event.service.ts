@@ -49,6 +49,7 @@ export class ReaderEventService {
   private touchStartTime = 0;
   private selectionChangeTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastTouchTime = 0;
+  private lastUserInteractionTime = 0;
 
   private eventSubject = new Subject<ViewEvent>();
   public events$ = this.eventSubject.asObservable();
@@ -153,13 +154,14 @@ export class ReaderEventService {
     this.clickedDocs.add(doc);
 
     doc.addEventListener('mousedown', () => {
+      this.lastUserInteractionTime = Date.now();
       this.longHoldTimeout = setTimeout(() => {
         this.longHoldTimeout = null;
       }, this.LONG_HOLD_THRESHOLD_MS);
     }, true);
 
     doc.addEventListener('mouseup', () => {
-      this.handleSelectionEnd(doc);
+      this.handleSelectionEnd(doc, 'user');
     });
 
     doc.addEventListener('click', (event: MouseEvent) => {
@@ -228,7 +230,7 @@ export class ReaderEventService {
       if (!text) return;
 
       if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-        this.handleSelectionEnd(doc);
+        this.handleSelectionEnd(doc, 'selectionchange');
       }
     }, 300);
   }
@@ -253,6 +255,7 @@ export class ReaderEventService {
     if (event.touches.length !== 1) return;
 
     const touch = event.touches[0];
+    this.lastUserInteractionTime = Date.now();
     this.touchStartX = touch.clientX;
     this.touchStartY = touch.clientY;
     this.touchStartTime = Date.now();
@@ -295,7 +298,7 @@ export class ReaderEventService {
       event.preventDefault();
 
       setTimeout(() => {
-        this.handleSelectionEnd(doc);
+        this.handleSelectionEnd(doc, 'user');
       }, 50);
       return;
     }
@@ -340,7 +343,11 @@ export class ReaderEventService {
     this.isTextSelectionInProgress = false;
   }
 
-  private handleSelectionEnd(doc: Document): void {
+  private handleSelectionEnd(doc: Document, source: 'user' | 'selectionchange'): void {
+    if (source === 'selectionchange' && !this.isRecentUserInteraction()) {
+      return;
+    }
+
     setTimeout(() => {
       const selection = doc.defaultView?.getSelection();
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
@@ -390,6 +397,11 @@ export class ReaderEventService {
         });
       }
     }, 10);
+  }
+
+  private isRecentUserInteraction(): boolean {
+    const RECENT_INTERACTION_WINDOW_MS = 2000;
+    return Date.now() - this.lastUserInteractionTime <= RECENT_INTERACTION_WINDOW_MS;
   }
 
   private handleIframeClickMessage(data: any): void {
