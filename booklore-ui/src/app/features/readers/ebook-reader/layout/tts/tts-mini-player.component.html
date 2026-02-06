@@ -1,0 +1,34 @@
+<div class="tts-mini-player" (click)="$event.stopPropagation()">
+  <div class="transport-controls">
+    <button class="transport-btn" (click)="onPrevious()" title="Previous sentence">
+      <app-reader-icon name="chevron-left" [size]="16"></app-reader-icon>
+    </button>
+    <button
+      class="transport-btn primary"
+      (click)="onTogglePlayPause()"
+      [title]="state.isPlaying && !state.isPaused ? 'Pause' : 'Play'">
+      <app-reader-icon [name]="state.isPlaying && !state.isPaused ? 'pause' : 'play'" [size]="16"></app-reader-icon>
+    </button>
+    <button class="transport-btn" (click)="onNext()" title="Next sentence">
+      <app-reader-icon name="chevron-right" [size]="16"></app-reader-icon>
+    </button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="speed-controls">
+    <button class="rate-btn" (click)="onDecreaseRate()" title="Slower">-</button>
+    <span class="rate-value">{{ state.rate | number:'1.1-1' }}x</span>
+    <button class="rate-btn" (click)="onIncreaseRate()" title="Faster">+</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <button class="icon-btn" (click)="openSettings.emit()" title="Voice and provider settings">
+    <app-reader-icon name="settings" [size]="15"></app-reader-icon>
+  </button>
+
+  <button class="icon-btn collapse-btn" (click)="collapse.emit()" title="Hide controls">
+    <app-reader-icon name="chevron-down" [size]="14"></app-reader-icon>
+  </button>
+</div>

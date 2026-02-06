@@ -31,6 +31,7 @@ import {TextSelectionAction, TextSelectionPopupComponent} from './shared/selecti
 import {NoteDialogData, NoteDialogResult, ReaderNoteDialogComponent} from './dialogs/note-dialog.component';
 import {ReaderTtsService} from './features/tts/tts.service';
 import {ReaderTtsPanelComponent} from './layout/tts/tts-panel.component';
+import {ReaderTtsMiniPlayerComponent} from './layout/tts/tts-mini-player.component';
 
 @Component({
   selector: 'app-ebook-reader',
@@ -46,7 +47,8 @@ import {ReaderTtsPanelComponent} from './layout/tts/tts-panel.component';
     ReaderNavbarComponent,
     TextSelectionPopupComponent,
     ReaderNoteDialogComponent,
-    ReaderTtsPanelComponent
+    ReaderTtsPanelComponent,
+    ReaderTtsMiniPlayerComponent
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   providers: [
@@ -114,7 +116,10 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
 
   showNoteDialog = false;
   noteDialogData: NoteDialogData | null = null;
-  showTtsPanel = false;
+  ttsEnabled = false;
+  showTtsSettings = false;
+  ttsControlsCollapsed = false;
+  isTtsPlaybackActive = false;
 
   get currentProgressData(): any {
     return this.progressService.currentProgressData;
@@ -159,7 +164,13 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
 
     this.headerService.toggleTts$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => this.showTtsPanel = !this.showTtsPanel);
+      .subscribe(() => this.toggleTtsMode());
+
+    this.ttsService.state$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(state => {
+        this.isTtsPlaybackActive = state.isPlaying || state.isPaused;
+      });
 
     this.ttsService.initialize();
 
@@ -321,8 +332,13 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
             break;
           case 'middle-single-tap':
             this.toggleHeaderNavbarPinned();
+            this.revealTtsControls();
             break;
           case 'text-selected':
+            if (this.isTtsPlaybackActive) {
+              this.selectionService.hidePopup();
+              break;
+            }
             this.selectionService.handleTextSelected(event.detail, event.popupPosition);
             break;
         }
@@ -394,8 +410,10 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
     } else if (action.type === 'tts') {
       const selection = this.selectionService.getCurrentSelection();
       if (selection) {
+        this.ttsEnabled = true;
+        this.ttsControlsCollapsed = false;
+        this.showTtsSettings = false;
         this.ttsService.startFromSelection(selection.range);
-        this.showTtsPanel = true;
       }
       this.selectionService.handleAction({type: 'dismiss'});
     } else {
@@ -409,5 +427,41 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
 
   onNoteCancel(): void {
     this.noteService.closeDialog();
+  }
+
+  onReaderSurfaceTap(): void {
+    this.revealTtsControls();
+  }
+
+  onCollapseTtsControls(): void {
+    this.ttsControlsCollapsed = true;
+    this.showTtsSettings = false;
+    this.selectionService.hidePopup();
+  }
+
+  onOpenTtsSettings(): void {
+    this.showTtsSettings = true;
+    this.ttsControlsCollapsed = false;
+  }
+
+  private toggleTtsMode(): void {
+    if (!this.ttsEnabled) {
+      this.ttsEnabled = true;
+      this.ttsControlsCollapsed = false;
+      this.showTtsSettings = true;
+      return;
+    }
+
+    this.ttsEnabled = false;
+    this.showTtsSettings = false;
+    this.ttsControlsCollapsed = false;
+    this.ttsService.stop();
+    this.selectionService.hidePopup();
+  }
+
+  private revealTtsControls(): void {
+    if (this.ttsEnabled && this.ttsControlsCollapsed) {
+      this.ttsControlsCollapsed = false;
+    }
   }
 }

@@ -1,0 +1,104 @@
+$text-primary: rgba(255, 255, 255, 0.95);
+$text-secondary: rgba(255, 255, 255, 0.65);
+$border-color: rgba(255, 255, 255, 0.08);
+$hover-bg: rgba(255, 255, 255, 0.1);
+$active-bg: rgba(129, 140, 248, 0.18);
+$transition-fast: 150ms ease;
+
+.tts-mini-player {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, rgba(32, 33, 38, 0.96) 0%, rgba(24, 24, 27, 0.96) 100%);
+  border: 1px solid $border-color;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  max-width: calc(100vw - 16px);
+}
+
+.transport-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transport-btn,
+.icon-btn,
+.rate-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid $border-color;
+  background: rgba(255, 255, 255, 0.04);
+  color: $text-primary;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background $transition-fast, transform $transition-fast, color $transition-fast;
+
+  &:hover {
+    background: $hover-bg;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.transport-btn.primary {
+  border-color: rgba(129, 140, 248, 0.7);
+  background: $active-bg;
+}
+
+.speed-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rate-btn {
+  font-size: 15px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.rate-value {
+  min-width: 42px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-primary;
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  background: $border-color;
+}
+
+.collapse-btn {
+  color: $text-secondary;
+}
+
+@media (max-width: 720px) {
+  .tts-mini-player {
+    width: calc(100vw - 16px);
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .rate-value {
+    min-width: 38px;
+  }
+}

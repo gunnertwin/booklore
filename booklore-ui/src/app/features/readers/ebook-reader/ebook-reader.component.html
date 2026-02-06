@@ -20,7 +20,7 @@
 
   <app-reader-header></app-reader-header>
 
-  <div class="reader-content" style="position: relative;">
+  <div class="reader-content" style="position: relative;" (click)="onReaderSurfaceTap()">
     @if (isCurrentCfiBookmarked) {
       <div class="bookmark-indicator">
         <svg width="48" height="64" viewBox="0 0 48 64">
@@ -67,7 +67,7 @@
   }
 
   <app-text-selection-popup
-    [visible]="showSelectionPopup"
+    [visible]="showSelectionPopup && !isTtsPlaybackActive"
     [position]="popupPosition"
     [showBelow]="showPopupBelow"
     [overlappingAnnotationId]="overlappingAnnotationId"
@@ -83,7 +83,14 @@
     ></app-reader-note-dialog>
   }
 
-  @if (showTtsPanel) {
-    <app-reader-tts-panel (close)="showTtsPanel = false"></app-reader-tts-panel>
+  @if (ttsEnabled && !ttsControlsCollapsed) {
+    <app-reader-tts-mini-player
+      (collapse)="onCollapseTtsControls()"
+      (openSettings)="onOpenTtsSettings()">
+    </app-reader-tts-mini-player>
+  }
+
+  @if (showTtsSettings) {
+    <app-reader-tts-panel (close)="showTtsSettings = false"></app-reader-tts-panel>
   }
 </div>
