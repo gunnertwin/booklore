@@ -100,7 +100,8 @@ public class PiperTtsProviderClient implements TtsProviderClient {
                             .thenComparing(TtsVoiceResponse::name))
                     .toList();
         } catch (Exception e) {
-            log.warn("Failed to parse Piper voices list: {}", e.getMessage());
+            log.warn("Failed to parse Piper voices list");
+            log.debug("Piper voices parse error", e);
             return List.of();
         }
     }

@@ -63,7 +63,8 @@ public class CloudTtsService {
         try {
             return provider.synthesize(text, request.getVoiceId(), request.getLanguage(), rate);
         } catch (Exception e) {
-            log.warn("TTS synthesis failed for provider {}: {}", provider.getId(), e.getMessage());
+            log.warn("TTS synthesis failed for provider {}", provider.getId());
+            log.debug("TTS synthesis failure details for provider {}", provider.getId(), e);
             throw ApiError.TTS_SYNTHESIS_FAILED.createException(provider.getId());
         }
     }

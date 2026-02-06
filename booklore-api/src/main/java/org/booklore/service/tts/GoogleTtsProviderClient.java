@@ -121,7 +121,8 @@ public class GoogleTtsProviderClient implements TtsProviderClient {
                             .thenComparing(TtsVoiceResponse::name))
                     .toList();
         } catch (Exception e) {
-            log.warn("Failed to parse Google voices list: {}", e.getMessage());
+            log.warn("Failed to parse Google voices list");
+            log.debug("Google voices parse error", e);
             return List.of();
         }
     }

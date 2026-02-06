@@ -109,7 +109,8 @@ public class AzureTtsProviderClient implements TtsProviderClient {
                             .thenComparing(TtsVoiceResponse::name))
                     .toList();
         } catch (Exception e) {
-            log.warn("Failed to parse Azure voices list: {}", e.getMessage());
+            log.warn("Failed to parse Azure voices list");
+            log.debug("Azure voices parse error", e);
             return List.of();
         }
     }
