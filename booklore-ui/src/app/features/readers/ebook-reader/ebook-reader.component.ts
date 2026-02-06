@@ -335,10 +335,6 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
             this.revealTtsControls();
             break;
           case 'text-selected':
-            if (this.isTtsPlaybackActive) {
-              this.selectionService.hidePopup();
-              break;
-            }
             this.selectionService.handleTextSelected(event.detail, event.popupPosition);
             break;
         }
@@ -450,9 +446,8 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
 
   private toggleTtsMode(): void {
     if (!this.ttsEnabled) {
-      this.setTtsEnabled(true);
-      this.ttsControlsCollapsed = false;
-      this.showTtsSettings = true;
+      this.showTtsSettings = !this.showTtsSettings;
+      this.selectionService.hidePopup();
       return;
     }
 

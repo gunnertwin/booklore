@@ -153,7 +153,14 @@ export class ReaderViewManagerService {
     if (!this.view?.initTTS) {
       return of(undefined);
     }
-    return defer(() => from(this.view.initTTS(granularity) as Promise<void>)).pipe(
+    const highlight = (range: Range) => {
+      const renderer = this.view?.renderer;
+      if (renderer?.scrollToAnchor) {
+        renderer.scrollToAnchor(range, false);
+      }
+    };
+
+    return defer(() => from(this.view.initTTS(granularity, highlight) as Promise<void>)).pipe(
       map(() => undefined)
     );
   }
