@@ -39,12 +39,4 @@ export class ReaderTtsMiniPlayerComponent {
   onNextParagraph(): void {
     this.ttsService.playNextParagraph();
   }
-
-  onDecreaseRate(): void {
-    this.ttsService.setRate(this.state.rate - 0.1);
-  }
-
-  onIncreaseRate(): void {
-    this.ttsService.setRate(this.state.rate + 0.1);
-  }
 }

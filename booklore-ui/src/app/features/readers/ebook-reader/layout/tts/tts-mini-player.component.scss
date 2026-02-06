@@ -31,8 +31,7 @@ $transition-fast: 150ms ease;
 }
 
 .transport-btn,
-.icon-btn,
-.rate-btn {
+.icon-btn {
   width: 30px;
   height: 30px;
   border-radius: 7px;
@@ -59,27 +58,6 @@ $transition-fast: 150ms ease;
   background: $active-bg;
 }
 
-.speed-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.rate-btn {
-  font-size: 15px;
-  font-weight: 500;
-  color: $text-secondary;
-}
-
-.rate-value {
-  min-width: 42px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: $text-primary;
-  font-variant-numeric: tabular-nums;
-}
-
 .divider {
   width: 1px;
   height: 18px;
@@ -94,28 +72,17 @@ $transition-fast: 150ms ease;
   .tts-mini-player {
     width: calc(100vw - 16px);
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
     padding: 8px;
   }
 
   .transport-controls {
-    width: 100%;
     justify-content: center;
     gap: 4px;
   }
 
-  .rate-value {
-    min-width: 38px;
-  }
-
-  .divider {
-    display: none;
-  }
-
   .transport-btn,
-  .icon-btn,
-  .rate-btn {
+  .icon-btn {
     width: 28px;
     height: 28px;
   }

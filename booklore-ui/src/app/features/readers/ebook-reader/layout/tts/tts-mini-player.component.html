@@ -22,14 +22,6 @@
 
   <div class="divider"></div>
 
-  <div class="speed-controls">
-    <button class="rate-btn" (click)="onDecreaseRate()" title="Slower">-</button>
-    <span class="rate-value">{{ state.rate | number:'1.1-1' }}x</span>
-    <button class="rate-btn" (click)="onIncreaseRate()" title="Faster">+</button>
-  </div>
-
-  <div class="divider"></div>
-
   <button class="icon-btn" (click)="openSettings.emit()" title="Voice and provider settings">
     <app-reader-icon name="settings" [size]="15"></app-reader-icon>
   </button>
