@@ -15,10 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Service to sync reading progress to Hardcover.
@@ -32,10 +34,17 @@ public class HardcoverSyncService {
     private static final String HARDCOVER_API_URL = "https://api.hardcover.app/v1/graphql";
     private static final int STATUS_CURRENTLY_READING = 2;
     private static final int STATUS_READ = 3;
+    private static final float COMPLETED_PROGRESS_PERCENT = 99.0f;
+    private static final float MIN_PROGRESS_DELTA_PERCENT = 1.0f;
+    private static final long MIN_SYNC_INTERVAL_MILLIS = 15_000L;
+    private static final long DUPLICATE_PROGRESS_SUPPRESSION_MILLIS = 60_000L;
+    private static final int SYNC_ATTEMPT_CACHE_CLEANUP_THRESHOLD = 5_000;
+    private static final long SYNC_ATTEMPT_TTL_MILLIS = 6 * 60 * 60 * 1000L;
 
     private final RestClient restClient;
     private final HardcoverSyncSettingsService hardcoverSyncSettingsService;
     private final BookRepository bookRepository;
+    private final Map<String, SyncAttempt> recentSyncAttempts = new ConcurrentHashMap<>();
 
     // Thread-local to hold the current API token for GraphQL requests
     private final ThreadLocal<String> currentApiToken = new ThreadLocal<>();
@@ -76,6 +85,10 @@ public class HardcoverSyncService {
             try {
                 if (progressPercent == null) {
                     log.debug("Hardcover sync skipped: no progress to sync");
+                    return;
+                }
+
+                if (shouldSkipSync(bookId, userId, progressPercent)) {
                     return;
                 }
 
@@ -120,7 +133,7 @@ public class HardcoverSyncService {
                 }
 
                 // Determine the status based on progress
-                int statusId = progressPercent >= 99.0f ? STATUS_READ : STATUS_CURRENTLY_READING;
+                int statusId = progressPercent >= COMPLETED_PROGRESS_PERCENT ? STATUS_READ : STATUS_CURRENTLY_READING;
 
                 // Calculate progress in pages
                 int progressPages = 0;
@@ -140,7 +153,7 @@ public class HardcoverSyncService {
                 }
 
                 // Step 2: Create or update the reading progress
-                boolean isFinished = progressPercent >= 99.0f;
+                boolean isFinished = progressPercent >= COMPLETED_PROGRESS_PERCENT;
                 boolean success = upsertReadingProgress(userBookId, hardcoverBook.editionId, progressPages, isFinished);
                 
                 if (success) {
@@ -174,6 +187,58 @@ public class HardcoverSyncService {
 
     private String getApiToken() {
         return currentApiToken.get();
+    }
+
+    private boolean shouldSkipSync(Long bookId, Long userId, float progressPercent) {
+        maybeCleanupSyncAttempts();
+
+        String key = userId + ":" + bookId;
+        long now = Instant.now().toEpochMilli();
+        SyncAttempt previous = recentSyncAttempts.get(key);
+        if (previous == null) {
+            recentSyncAttempts.put(key, new SyncAttempt(now, progressPercent));
+            return false;
+        }
+
+        long elapsedMs = now - previous.timestampMs;
+        float delta = Math.abs(progressPercent - previous.progressPercent);
+
+        // Allow first completion sync, but suppress duplicate completion writes in a short window.
+        if (progressPercent >= COMPLETED_PROGRESS_PERCENT) {
+            if (previous.progressPercent >= COMPLETED_PROGRESS_PERCENT && elapsedMs < DUPLICATE_PROGRESS_SUPPRESSION_MILLIS) {
+                log.debug("Hardcover sync skipped (duplicate completion): userId={}, bookId={}, progressPercent={}, elapsedMs={}",
+                        userId, bookId, progressPercent, elapsedMs);
+                return true;
+            }
+            recentSyncAttempts.put(key, new SyncAttempt(now, progressPercent));
+            return false;
+        }
+
+        // Suppress near-identical progress updates that often arrive in bursts.
+        if (delta < 0.01f && elapsedMs < DUPLICATE_PROGRESS_SUPPRESSION_MILLIS) {
+            log.debug("Hardcover sync skipped (duplicate progress): userId={}, bookId={}, progressPercent={}, elapsedMs={}",
+                    userId, bookId, progressPercent, elapsedMs);
+            return true;
+        }
+
+        // Suppress tiny progress changes over a short interval to avoid Hardcover API throttling.
+        if (delta < MIN_PROGRESS_DELTA_PERCENT && elapsedMs < MIN_SYNC_INTERVAL_MILLIS) {
+            log.debug("Hardcover sync skipped (debounced): userId={}, bookId={}, progressPercent={}, previousProgressPercent={}, elapsedMs={}",
+                    userId, bookId, progressPercent, previous.progressPercent, elapsedMs);
+            return true;
+        }
+
+        recentSyncAttempts.put(key, new SyncAttempt(now, progressPercent));
+        return false;
+    }
+
+    private void maybeCleanupSyncAttempts() {
+        if (recentSyncAttempts.size() < SYNC_ATTEMPT_CACHE_CLEANUP_THRESHOLD) {
+            return;
+        }
+
+        long cutoff = Instant.now().toEpochMilli() - SYNC_ATTEMPT_TTL_MILLIS;
+        recentSyncAttempts.entrySet().removeIf(entry -> entry.getValue().timestampMs < cutoff);
     }
 
     /**
@@ -735,5 +800,15 @@ public class HardcoverSyncService {
     private static class EditionInfo {
         Integer id;
         Integer pages;
+    }
+
+    private static class SyncAttempt {
+        final long timestampMs;
+        final float progressPercent;
+
+        SyncAttempt(long timestampMs, float progressPercent) {
+            this.timestampMs = timestampMs;
+            this.progressPercent = progressPercent;
+        }
     }
 }

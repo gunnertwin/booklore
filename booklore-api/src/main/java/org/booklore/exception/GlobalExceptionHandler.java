@@ -75,22 +75,25 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AsyncRequestNotUsableException.class)
-    public ResponseEntity<ErrorResponse> handleAsyncRequestNotUsableException(AsyncRequestNotUsableException ex) {
-        if (ex.getCause() instanceof ClientAbortException) {
+    public ResponseEntity<Void> handleAsyncRequestNotUsableException(AsyncRequestNotUsableException ex) {
+        boolean isClientAbort = ex.getCause() instanceof ClientAbortException
+                || (ex.getMessage() != null && ex.getMessage().contains("Broken pipe"))
+                || (ex.getCause() != null && ex.getCause().getMessage() != null && ex.getCause().getMessage().contains("Broken pipe"));
+
+        if (isClientAbort) {
             log.info("Request was canceled by client: {}", ex.getMessage());
         } else {
             log.error("Unexpected error occurred during async request handling: ", ex);
         }
-        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.OK.value(), "Request was canceled by the client.");
-        return new ResponseEntity<>(errorResponse, HttpStatus.OK);
+        // No response body here to avoid converter/content-type clashes on streaming endpoints (e.g. audio/wav).
+        return ResponseEntity.noContent().build();
     }
 
     @ExceptionHandler(InterruptedException.class)
-    public ResponseEntity<ErrorResponse> handleInterruptedException(InterruptedException ex) {
+    public ResponseEntity<Void> handleInterruptedException(InterruptedException ex) {
         log.info("Request was interrupted: {}", ex.getMessage() != null ? ex.getMessage() : "Thread interrupted");
         Thread.currentThread().interrupt();
-        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.OK.value(), "Request was cancelled.");
-        return new ResponseEntity<>(errorResponse, HttpStatus.OK);
+        return ResponseEntity.noContent().build();
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
