@@ -21,6 +21,7 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class GoogleTtsProviderClient implements TtsProviderClient {
+    private static final String GOOGLE_API_KEY_HEADER = "X-Goog-Api-Key";
 
     private final TtsProperties properties;
     private final RestClient restClient;
@@ -69,7 +70,8 @@ public class GoogleTtsProviderClient implements TtsProviderClient {
     @Override
     public List<TtsVoiceResponse> listVoices(String language) {
         String response = restClient.get()
-                .uri(resolveBaseUrl() + "/v1/voices?key=" + properties.getGoogle().getApiKey())
+                .uri(resolveBaseUrl() + "/v1/voices")
+                .header(GOOGLE_API_KEY_HEADER, properties.getGoogle().getApiKey())
                 .retrieve()
                 .body(String.class);
 
@@ -147,7 +149,8 @@ public class GoogleTtsProviderClient implements TtsProviderClient {
         audioConfig.put("speakingRate", clampRate(rate));
 
         String response = restClient.post()
-                .uri(resolveBaseUrl() + "/v1/text:synthesize?key=" + properties.getGoogle().getApiKey())
+                .uri(resolveBaseUrl() + "/v1/text:synthesize")
+                .header(GOOGLE_API_KEY_HEADER, properties.getGoogle().getApiKey())
                 .header("Content-Type", "application/json")
                 .body(requestBody.toString())
                 .retrieve()
