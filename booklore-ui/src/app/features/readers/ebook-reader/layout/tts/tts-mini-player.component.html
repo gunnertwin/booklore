@@ -1,5 +1,8 @@
 <div class="tts-mini-player" (click)="$event.stopPropagation()">
   <div class="transport-controls">
+    <button class="transport-btn" (click)="onPreviousParagraph()" title="Previous paragraph">
+      <app-reader-icon name="chevron-double-left" [size]="16"></app-reader-icon>
+    </button>
     <button class="transport-btn" (click)="onPrevious()" title="Previous sentence">
       <app-reader-icon name="chevron-left" [size]="16"></app-reader-icon>
     </button>
@@ -11,6 +14,9 @@
     </button>
     <button class="transport-btn" (click)="onNext()" title="Next sentence">
       <app-reader-icon name="chevron-right" [size]="16"></app-reader-icon>
+    </button>
+    <button class="transport-btn" (click)="onNextParagraph()" title="Next paragraph">
+      <app-reader-icon name="chevron-double-right" [size]="16"></app-reader-icon>
     </button>
   </div>
 

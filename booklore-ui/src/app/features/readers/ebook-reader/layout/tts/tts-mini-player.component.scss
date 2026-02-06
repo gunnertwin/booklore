@@ -94,11 +94,29 @@ $transition-fast: 150ms ease;
   .tts-mini-player {
     width: calc(100vw - 16px);
     justify-content: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 4px;
     padding: 8px;
+  }
+
+  .transport-controls {
+    width: 100%;
+    justify-content: center;
+    gap: 4px;
   }
 
   .rate-value {
     min-width: 38px;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .transport-btn,
+  .icon-btn,
+  .rate-btn {
+    width: 28px;
+    height: 28px;
   }
 }

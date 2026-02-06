@@ -32,6 +32,14 @@ export class ReaderTtsMiniPlayerComponent {
     this.ttsService.playNext();
   }
 
+  onPreviousParagraph(): void {
+    this.ttsService.playPreviousParagraph();
+  }
+
+  onNextParagraph(): void {
+    this.ttsService.playNextParagraph();
+  }
+
   onDecreaseRate(): void {
     this.ttsService.setRate(this.state.rate - 0.1);
   }
@@ -40,4 +48,3 @@ export class ReaderTtsMiniPlayerComponent {
     this.ttsService.setRate(this.state.rate + 0.1);
   }
 }
-

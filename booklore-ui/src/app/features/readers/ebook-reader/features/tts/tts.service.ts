@@ -230,11 +230,19 @@ export class ReaderTtsService {
   }
 
   playNext(): void {
-    void this.jump('next');
+    void this.jumpSentence('next');
   }
 
   playPrevious(): void {
-    void this.jump('prev');
+    void this.jumpSentence('prev');
+  }
+
+  playNextParagraph(): void {
+    void this.jumpParagraph('next');
+  }
+
+  playPreviousParagraph(): void {
+    void this.jumpParagraph('prev');
   }
 
   stop(): void {
@@ -486,7 +494,7 @@ export class ReaderTtsService {
     }
   }
 
-  private async jump(direction: 'next' | 'prev'): Promise<void> {
+  private async jumpSentence(direction: 'next' | 'prev'): Promise<void> {
     try {
       await this.ensureReady();
       if (direction === 'next') {
@@ -494,7 +502,18 @@ export class ReaderTtsService {
         return;
       }
 
-      const ssml = this.getTtsController()?.prev?.();
+      await this.jumpToPreviousSentence();
+    } catch {
+      this.handleError('Unable to change TTS position.');
+    }
+  }
+
+  private async jumpParagraph(direction: 'next' | 'prev'): Promise<void> {
+    try {
+      await this.ensureReady();
+      const ssml = direction === 'next'
+        ? await this.resolveNextSsml()
+        : await this.resolvePreviousSsml();
       this.startFromSsml(ssml);
     } catch {
       this.handleError('Unable to change TTS position.');
@@ -893,6 +912,29 @@ export class ReaderTtsService {
     return restarted;
   }
 
+  private async resolvePreviousSsml(): Promise<string | undefined> {
+    const directPrevious = this.getTtsController()?.prev?.();
+    if (directPrevious) {
+      return directPrevious;
+    }
+
+    const moved = await this.advanceToAdjacentSection('prev');
+    if (!moved) {
+      return undefined;
+    }
+
+    const restarted = this.getTtsController()?.start?.();
+    if (!restarted) {
+      return undefined;
+    }
+
+    if (this.lastChunkSignature && this.getSsmlSignature(restarted) === this.lastChunkSignature) {
+      return undefined;
+    }
+
+    return restarted;
+  }
+
   private async jumpToNextSentence(): Promise<void> {
     if (this.currentSegments.length && this.currentSegmentIndex < this.currentSegments.length - 1) {
       this.cancelSpeech(true, false);
@@ -905,6 +947,36 @@ export class ReaderTtsService {
 
     const nextSsml = await this.resolveNextSsml();
     this.startFromSsml(nextSsml);
+  }
+
+  private async jumpToPreviousSentence(): Promise<void> {
+    if (this.currentSegments.length && this.currentSegmentIndex > 0) {
+      this.cancelSpeech(true, false);
+      this.currentSegmentIndex -= 1;
+      const generation = this.playbackGeneration;
+      this.patchState({isPlaying: true, isPaused: false, error: null});
+      this.speakCurrentSegment(generation);
+      return;
+    }
+
+    const previousSsml = await this.resolvePreviousSsml();
+    if (!previousSsml) {
+      this.startFromSsml(undefined);
+      return;
+    }
+
+    this.cancelSpeech(true);
+    this.lastChunkSignature = this.getSsmlSignature(previousSsml);
+    this.currentSegments = this.parseSsmlSegments(previousSsml);
+    if (!this.currentSegments.length) {
+      this.startFromSsml(undefined);
+      return;
+    }
+
+    this.currentSegmentIndex = this.currentSegments.length - 1;
+    const generation = this.playbackGeneration;
+    this.patchState({isPlaying: true, isPaused: false, error: null});
+    this.speakCurrentSegment(generation);
   }
 
   private async advanceToAdjacentSection(direction: 'next' | 'prev'): Promise<boolean> {

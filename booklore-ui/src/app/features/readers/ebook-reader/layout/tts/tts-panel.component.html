@@ -93,7 +93,10 @@
 
         <div class="section-header">Playback</div>
         <div class="transport-controls">
-          <button class="transport-btn" (click)="onPrevious()" title="Previous">
+          <button class="transport-btn" (click)="onPreviousParagraph()" title="Previous paragraph">
+            <app-reader-icon name="chevron-double-left" [size]="16"></app-reader-icon>
+          </button>
+          <button class="transport-btn" (click)="onPrevious()" title="Previous sentence">
             <app-reader-icon name="chevron-left" [size]="18"></app-reader-icon>
           </button>
           <button class="transport-btn primary" (click)="onTogglePlayPause()" [title]="state.isPlaying && !state.isPaused ? 'Pause' : 'Play'">
@@ -102,8 +105,11 @@
           <button class="transport-btn" (click)="onStop()" title="Stop">
             <app-reader-icon name="stop" [size]="16"></app-reader-icon>
           </button>
-          <button class="transport-btn" (click)="onNext()" title="Next">
+          <button class="transport-btn" (click)="onNext()" title="Next sentence">
             <app-reader-icon name="chevron-right" [size]="18"></app-reader-icon>
+          </button>
+          <button class="transport-btn" (click)="onNextParagraph()" title="Next paragraph">
+            <app-reader-icon name="chevron-double-right" [size]="16"></app-reader-icon>
           </button>
         </div>
 
