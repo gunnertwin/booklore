@@ -29,7 +29,6 @@ services:
     restart: unless-stopped
     depends_on:
       - backend_db
-      - piper
     volumes:
       - './booklore-api:/booklore-api'
       - /booklore-api/build
@@ -77,16 +76,6 @@ services:
       - '/dev/null:/angular-app/package-lock.json'
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
-
-  piper:
-    image: python:3.11-slim
-    command: sh -lc "/scripts/start-piper.sh"
-    restart: unless-stopped
-    ports:
-      - "${PIPER_PORT:-5000}:5000"
-    volumes:
-      - ./shared/piper:/voices
-      - ./scripts/dev/start-piper.sh:/scripts/start-piper.sh:ro
 
 volumes:
   node_modules:

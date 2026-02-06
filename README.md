@@ -227,7 +227,7 @@ DB_PASSWORD=ChangeMe_BookLoreApp_2025!
 # 💾 Storage type: LOCAL (default) or NETWORK. Set to NETWORK if using NFS/SMB - this disables file reorganization features to prevent data corruption.
 DISK_TYPE=LOCAL
 
-# 🔊 Optional Cloud Text-to-Speech (Read Aloud)
+# 🔊 Optional Text-to-Speech Providers (Read Aloud)
 # Leave provider flags disabled to use browser voices only.
 TTS_ENABLED=true
 TTS_MAX_TEXT_LENGTH=1800
@@ -238,6 +238,7 @@ TTS_AZURE_DEFAULT_VOICE=en-US-AvaNeural
 TTS_GOOGLE_ENABLED=false
 TTS_GOOGLE_API_KEY=
 TTS_GOOGLE_DEFAULT_VOICE=en-US-Neural2-F
+# Piper is external to BookLore. Run it separately and set its reachable URL.
 TTS_PIPER_ENABLED=false
 TTS_PIPER_BASE_URL=http://piper:5000
 TTS_PIPER_DEFAULT_VOICE=
