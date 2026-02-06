@@ -29,6 +29,8 @@ import {ReaderHeaderFooterVisibilityManager} from './shared/visibility.util';
 import {EpubCustomFontService} from './features/fonts/custom-font.service';
 import {TextSelectionAction, TextSelectionPopupComponent} from './shared/selection-popup.component';
 import {NoteDialogData, NoteDialogResult, ReaderNoteDialogComponent} from './dialogs/note-dialog.component';
+import {ReaderTtsService} from './features/tts/tts.service';
+import {ReaderTtsPanelComponent} from './layout/tts/tts-panel.component';
 
 @Component({
   selector: 'app-ebook-reader',
@@ -43,7 +45,8 @@ import {NoteDialogData, NoteDialogResult, ReaderNoteDialogComponent} from './dia
     ReaderLeftSidebarComponent,
     ReaderNavbarComponent,
     TextSelectionPopupComponent,
-    ReaderNoteDialogComponent
+    ReaderNoteDialogComponent,
+    ReaderTtsPanelComponent
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   providers: [
@@ -59,7 +62,8 @@ import {NoteDialogData, NoteDialogResult, ReaderNoteDialogComponent} from './dia
     ReaderSidebarService,
     ReaderLeftSidebarService,
     ReaderHeaderService,
-    ReaderNoteService
+    ReaderNoteService,
+    ReaderTtsService
   ],
   templateUrl: './ebook-reader.component.html',
   styleUrls: ['./ebook-reader.component.scss']
@@ -76,6 +80,7 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
   private selectionService = inject(ReaderSelectionService);
   private headerService = inject(ReaderHeaderService);
   private noteService = inject(ReaderNoteService);
+  private ttsService = inject(ReaderTtsService);
 
   public sidebarService = inject(ReaderSidebarService);
   public leftSidebarService = inject(ReaderLeftSidebarService);
@@ -109,6 +114,7 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
 
   showNoteDialog = false;
   noteDialogData: NoteDialogData | null = null;
+  showTtsPanel = false;
 
   get currentProgressData(): any {
     return this.progressService.currentProgressData;
@@ -151,6 +157,12 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.showMetadata = true);
 
+    this.headerService.toggleTts$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.showTtsPanel = !this.showTtsPanel);
+
+    this.ttsService.initialize();
+
     this.isLoading = true;
     this.initializeFoliate().pipe(
       switchMap(() => this.epubCustomFontService.loadAndCacheFonts()),
@@ -182,6 +194,7 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
     this.leftSidebarService.reset();
     this.headerService.reset();
     this.noteService.reset();
+    this.ttsService.reset();
     this.epubCustomFontService.cleanup();
 
     if (this._fileUrl) {
@@ -378,6 +391,13 @@ export class EbookReaderComponent implements OnInit, OnDestroy {
   handleSelectionAction(action: TextSelectionAction): void {
     if (action.type === 'note') {
       this.noteService.openNewNoteDialog();
+    } else if (action.type === 'tts') {
+      const selection = this.selectionService.getCurrentSelection();
+      if (selection) {
+        this.ttsService.startFromSelection(selection.range);
+        this.showTtsPanel = true;
+      }
+      this.selectionService.handleAction({type: 'dismiss'});
     } else {
       this.selectionService.handleAction(action);
     }

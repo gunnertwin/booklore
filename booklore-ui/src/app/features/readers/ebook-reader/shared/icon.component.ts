@@ -20,6 +20,10 @@ export type ReaderIconName =
   | 'trash'
   | 'search'
   | 'note'
+  | 'volume'
+  | 'play'
+  | 'pause'
+  | 'stop'
   | 'plus'
   | 'minus'
   | 'fit-page'
@@ -118,6 +122,21 @@ const ICONS: Record<ReaderIconName, IconPath[]> = {
     {d: 'M16 13H8'},
     {d: 'M16 17H8'},
     {d: 'M10 9H8'}
+  ],
+  'volume': [
+    {d: 'M11 5L6 9H3v6h3l5 4z'},
+    {d: 'M15.5 8.5a5 5 0 0 1 0 7'},
+    {d: 'M18.5 6a9 9 0 0 1 0 12'}
+  ],
+  'play': [
+    {d: 'M8 5v14l11-7z'}
+  ],
+  'pause': [
+    {d: 'M8 5h3v14H8z'},
+    {d: 'M13 5h3v14h-3z'}
+  ],
+  'stop': [
+    {d: 'M7 7h10v10H7z'}
   ],
   'plus': [
     {d: 'M12,5 L12,19', type: 'line'},

@@ -17,6 +17,25 @@ app:
   telemetry:
     base-url: ${TELEMETRY_BASE_URL:https://telemetry.booklore.org}
   disk-type: ${DISK_TYPE:LOCAL}
+  tts:
+    enabled: ${TTS_ENABLED:true}
+    max-text-length: ${TTS_MAX_TEXT_LENGTH:1800}
+    azure:
+      enabled: ${TTS_AZURE_ENABLED:false}
+      api-key: ${TTS_AZURE_API_KEY:}
+      region: ${TTS_AZURE_REGION:}
+      endpoint: ${TTS_AZURE_ENDPOINT:}
+      default-voice: ${TTS_AZURE_DEFAULT_VOICE:en-US-AvaNeural}
+      output-format: ${TTS_AZURE_OUTPUT_FORMAT:audio-24khz-48kbitrate-mono-mp3}
+    google:
+      enabled: ${TTS_GOOGLE_ENABLED:false}
+      api-key: ${TTS_GOOGLE_API_KEY:}
+      endpoint: ${TTS_GOOGLE_ENDPOINT:https://texttospeech.googleapis.com}
+      default-voice: ${TTS_GOOGLE_DEFAULT_VOICE:en-US-Neural2-F}
+    piper:
+      enabled: ${TTS_PIPER_ENABLED:false}
+      base-url: ${TTS_PIPER_BASE_URL:http://piper:5000}
+      default-voice: ${TTS_PIPER_DEFAULT_VOICE:}
 
 server:
   forward-headers-strategy: native

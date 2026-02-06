@@ -82,4 +82,8 @@
       (cancel)="onNoteCancel()"
     ></app-reader-note-dialog>
   }
+
+  @if (showTtsPanel) {
+    <app-reader-tts-panel (close)="showTtsPanel = false"></app-reader-tts-panel>
+  }
 </div>

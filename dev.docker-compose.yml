@@ -10,11 +10,26 @@ services:
       - DATABASE_USERNAME=booklore
       - DATABASE_PASSWORD=booklore
       - REMOTE_DEBUG_ENABLED=true
+      - TTS_ENABLED=${TTS_ENABLED:-true}
+      - TTS_MAX_TEXT_LENGTH=${TTS_MAX_TEXT_LENGTH:-1800}
+      - TTS_AZURE_ENABLED=${TTS_AZURE_ENABLED:-false}
+      - TTS_AZURE_API_KEY=${TTS_AZURE_API_KEY:-}
+      - TTS_AZURE_REGION=${TTS_AZURE_REGION:-}
+      - TTS_AZURE_ENDPOINT=${TTS_AZURE_ENDPOINT:-}
+      - TTS_AZURE_DEFAULT_VOICE=${TTS_AZURE_DEFAULT_VOICE:-en-US-AvaNeural}
+      - TTS_GOOGLE_ENABLED=${TTS_GOOGLE_ENABLED:-false}
+      - TTS_GOOGLE_API_KEY=${TTS_GOOGLE_API_KEY:-}
+      - TTS_GOOGLE_ENDPOINT=${TTS_GOOGLE_ENDPOINT:-https://texttospeech.googleapis.com}
+      - TTS_GOOGLE_DEFAULT_VOICE=${TTS_GOOGLE_DEFAULT_VOICE:-en-US-Neural2-F}
+      - TTS_PIPER_ENABLED=${TTS_PIPER_ENABLED:-false}
+      - TTS_PIPER_BASE_URL=${TTS_PIPER_BASE_URL:-http://piper:5000}
+      - TTS_PIPER_DEFAULT_VOICE=${TTS_PIPER_DEFAULT_VOICE:-}
     stdin_open: true
     tty: true
     restart: unless-stopped
     depends_on:
       - backend_db
+      - piper
     volumes:
       - './booklore-api:/booklore-api'
       - /booklore-api/build
@@ -43,8 +58,8 @@ services:
       retries: 5
 
   ui:
-    image: node:22-alpine
-    command: sh -c "cd /angular-app && npm install -g @angular/cli --force && npm install --force && ng serve --host 0.0.0.0"
+    image: node:22-bookworm
+    command: sh -c "cd /angular-app && (test -d node_modules/@angular/build || npm install --include=optional --legacy-peer-deps) && npm run start -- --host 0.0.0.0 --port 4200 --watch=false --prebundle=false"
     environment:
       - NODE_ENV=development
     stdin_open: true
@@ -54,14 +69,19 @@ services:
       - './booklore-ui:/angular-app'
 
         # you can have node_modules in a volume. however, if you enable this, expect trouble in some IDEs, as the deps are not available anymore
-        # - node_modules:/angular-app/node_modules
-
-        # we ignore package-lock otherwise will throw
-        # An unhandled exception occurred: Cannot find module @rollup/rollup-linux-x64-musl. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828).
-        # Please try `npm i` again after removing both package-lock.json and node_modules directory.
-      - '/dev/null:/angular-app/package-lock.json'
+      - node_modules:/angular-app/node_modules
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
+
+  piper:
+    image: python:3.11-slim
+    command: sh -lc "/scripts/start-piper.sh"
+    restart: unless-stopped
+    ports:
+      - "${PIPER_PORT:-5000}:5000"
+    volumes:
+      - ./shared/piper:/voices
+      - ./scripts/dev/start-piper.sh:/scripts/start-piper.sh:ro
 
 volumes:
   node_modules:

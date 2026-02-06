@@ -17,6 +17,12 @@
 
     <div class="divider"></div>
 
+    <button class="action-btn" (click)="onTts()" title="Read aloud">
+      <app-reader-icon name="volume" [size]="16"></app-reader-icon>
+    </button>
+
+    <div class="divider"></div>
+
     <div class="annotation-container">
       <button class="action-btn" [class.active]="showAnnotationOptions" (click)="toggleAnnotationOptions()" title="Annotate">
         <app-reader-icon name="edit" [size]="16"></app-reader-icon>
