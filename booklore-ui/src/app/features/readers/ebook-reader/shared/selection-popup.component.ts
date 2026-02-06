@@ -5,7 +5,7 @@ import {ReaderIconComponent} from './icon.component';
 export type AnnotationStyle = 'highlight' | 'underline' | 'strikethrough' | 'squiggly';
 
 export interface TextSelectionAction {
-  type: 'select' | 'annotate' | 'delete' | 'dismiss' | 'preview' | 'search' | 'note';
+  type: 'select' | 'annotate' | 'delete' | 'dismiss' | 'preview' | 'search' | 'note' | 'tts';
   color?: string;
   style?: AnnotationStyle;
   annotationId?: number;
@@ -123,6 +123,12 @@ export class TextSelectionPopupComponent {
 
   onNote(): void {
     this.action.emit({type: 'note'});
+    this.showAnnotationOptions = false;
+    this.hasPreview = false;
+  }
+
+  onTts(): void {
+    this.action.emit({type: 'tts'});
     this.showAnnotationOptions = false;
     this.hasPreview = false;
   }

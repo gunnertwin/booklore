@@ -55,6 +55,10 @@ export class ReaderHeaderComponent implements OnInit, OnDestroy {
     this.headerService.openLeftSidebar('search');
   }
 
+  onToggleTts(): void {
+    this.headerService.toggleTts();
+  }
+
   onCreateBookmark(): void {
     this.headerService.createBookmark();
   }

@@ -62,7 +62,11 @@ public enum ApiError {
     DEMO_USER_PASSWORD_CHANGE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "Demo user password change not allowed."),
     PERMISSION_DENIED(HttpStatus.FORBIDDEN, "Permission denied: %s"),
     LIBRARY_PATH_NOT_ACCESSIBLE(HttpStatus.SERVICE_UNAVAILABLE, "Library scan aborted: path not accessible or empty: %s"),
-    FORMAT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "File format '%s' is not allowed in library '%s'");
+    FORMAT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "File format '%s' is not allowed in library '%s'"),
+    TTS_PROVIDER_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "Unsupported TTS provider: %s"),
+    TTS_PROVIDER_NOT_CONFIGURED(HttpStatus.BAD_REQUEST, "TTS provider is not configured: %s"),
+    TTS_TEXT_TOO_LONG(HttpStatus.BAD_REQUEST, "Text exceeds maximum TTS length of %d characters"),
+    TTS_SYNTHESIS_FAILED(HttpStatus.BAD_GATEWAY, "Failed to synthesize speech with provider '%s'");
 
     private final HttpStatus status;
     private final String message;

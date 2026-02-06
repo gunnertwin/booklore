@@ -10,11 +10,26 @@ services:
       - DATABASE_USERNAME=booklore
       - DATABASE_PASSWORD=booklore
       - REMOTE_DEBUG_ENABLED=true
+      - TTS_ENABLED=${TTS_ENABLED:-true}
+      - TTS_MAX_TEXT_LENGTH=${TTS_MAX_TEXT_LENGTH:-1800}
+      - TTS_AZURE_ENABLED=${TTS_AZURE_ENABLED:-false}
+      - TTS_AZURE_API_KEY=${TTS_AZURE_API_KEY:-}
+      - TTS_AZURE_REGION=${TTS_AZURE_REGION:-}
+      - TTS_AZURE_ENDPOINT=${TTS_AZURE_ENDPOINT:-}
+      - TTS_AZURE_DEFAULT_VOICE=${TTS_AZURE_DEFAULT_VOICE:-en-US-AvaNeural}
+      - TTS_GOOGLE_ENABLED=${TTS_GOOGLE_ENABLED:-false}
+      - TTS_GOOGLE_API_KEY=${TTS_GOOGLE_API_KEY:-}
+      - TTS_GOOGLE_ENDPOINT=${TTS_GOOGLE_ENDPOINT:-https://texttospeech.googleapis.com}
+      - TTS_GOOGLE_DEFAULT_VOICE=${TTS_GOOGLE_DEFAULT_VOICE:-en-US-Neural2-F}
+      - TTS_PIPER_ENABLED=${TTS_PIPER_ENABLED:-false}
+      - TTS_PIPER_BASE_URL=${TTS_PIPER_BASE_URL:-http://piper:5000}
+      - TTS_PIPER_DEFAULT_VOICE=${TTS_PIPER_DEFAULT_VOICE:-}
     stdin_open: true
     tty: true
     restart: unless-stopped
     depends_on:
       - backend_db
+      - piper
     volumes:
       - './booklore-api:/booklore-api'
       - /booklore-api/build
@@ -62,6 +77,16 @@ services:
       - '/dev/null:/angular-app/package-lock.json'
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
+
+  piper:
+    image: python:3.11-slim
+    command: sh -lc "/scripts/start-piper.sh"
+    restart: unless-stopped
+    ports:
+      - "${PIPER_PORT:-5000}:5000"
+    volumes:
+      - ./shared/piper:/voices
+      - ./scripts/dev/start-piper.sh:/scripts/start-piper.sh:ro
 
 volumes:
   node_modules:

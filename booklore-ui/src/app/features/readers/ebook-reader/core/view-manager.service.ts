@@ -145,6 +145,19 @@ export class ReaderViewManagerService {
     return this.view?.renderer;
   }
 
+  getView(): any {
+    return this.view;
+  }
+
+  initTts(granularity: 'word' | 'sentence' = 'sentence'): Observable<void> {
+    if (!this.view?.initTTS) {
+      return of(undefined);
+    }
+    return defer(() => from(this.view.initTTS(granularity) as Promise<void>)).pipe(
+      map(() => undefined)
+    );
+  }
+
   getSelection(): TextSelection | null {
     const renderer = this.getRenderer();
     if (!renderer) return null;

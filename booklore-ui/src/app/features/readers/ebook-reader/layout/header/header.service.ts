@@ -28,8 +28,10 @@ export class ReaderHeaderService {
 
   private _showControls = new Subject<void>();
   private _showMetadata = new Subject<void>();
+  private _toggleTts = new Subject<void>();
   showControls$ = this._showControls.asObservable();
   showMetadata$ = this._showMetadata.asObservable();
+  toggleTts$ = this._toggleTts.asObservable();
 
   get currentState() {
     return this.stateService.currentState;
@@ -75,6 +77,10 @@ export class ReaderHeaderService {
 
   openMetadata(): void {
     this._showMetadata.next();
+  }
+
+  toggleTts(): void {
+    this._toggleTts.next();
   }
 
   close(): void {

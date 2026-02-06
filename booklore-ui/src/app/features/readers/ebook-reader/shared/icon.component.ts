@@ -20,6 +20,10 @@ export type ReaderIconName =
   | 'trash'
   | 'search'
   | 'note'
+  | 'volume'
+  | 'play'
+  | 'pause'
+  | 'stop'
   | 'plus'
   | 'minus'
   | 'fit-page'
@@ -29,8 +33,6 @@ export type ReaderIconName =
   | 'auto-fit'
   | 'fullscreen'
   | 'fullscreen-exit'
-  | 'play'
-  | 'pause'
   | 'help'
   | 'long-strip'
   | 'direction-ltr'
@@ -119,6 +121,21 @@ const ICONS: Record<ReaderIconName, IconPath[]> = {
     {d: 'M16 17H8'},
     {d: 'M10 9H8'}
   ],
+  'volume': [
+    {d: 'M11 5L6 9H3v6h3l5 4z'},
+    {d: 'M15.5 8.5a5 5 0 0 1 0 7'},
+    {d: 'M18.5 6a9 9 0 0 1 0 12'}
+  ],
+  'play': [
+    {d: 'M8 5v14l11-7z'}
+  ],
+  'pause': [
+    {d: 'M8 5h3v14H8z'},
+    {d: 'M13 5h3v14h-3z'}
+  ],
+  'stop': [
+    {d: 'M7 7h10v10H7z'}
+  ],
   'plus': [
     {d: 'M12,5 L12,19', type: 'line'},
     {d: 'M5,12 L19,12', type: 'line'}
@@ -167,13 +184,6 @@ const ICONS: Record<ReaderIconName, IconPath[]> = {
     {d: 'M21 8h-3a2 2 0 0 1-2-2V3'},
     {d: 'M3 16h3a2 2 0 0 1 2 2v3'},
     {d: 'M16 21v-3a2 2 0 0 1 2-2h3'}
-  ],
-  'play': [
-    {d: 'M5 3l14 9-14 9V3z'}
-  ],
-  'pause': [
-    {d: 'M6,4 L6,20', type: 'line'},
-    {d: 'M18,4 L18,20', type: 'line'}
   ],
   'help': [
     {d: 'M12 12m-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0', type: 'path'},

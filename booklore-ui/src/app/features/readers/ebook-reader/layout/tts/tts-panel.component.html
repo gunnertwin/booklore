@@ -1,0 +1,87 @@
+<div class="quick-settings-overlay tts-overlay" (click)="onOverlayClick()">
+  <div class="quick-settings-panel tts-panel" (click)="$event.stopPropagation()">
+    <div class="pointer"></div>
+
+    <div class="panel-body">
+      <div class="panel-header">
+        <span>Read Aloud</span>
+        <button class="close-btn" (click)="close.emit()" title="Close">
+          <app-reader-icon name="close" [size]="14"></app-reader-icon>
+        </button>
+      </div>
+
+      @if (!state.supported) {
+        <div class="tts-message">Text-to-speech is not available. Enable browser speech or configure a cloud provider.</div>
+      } @else {
+        @if (showProviderSelector) {
+          <div class="control">
+            <label>Engine</label>
+            <div class="control-right">
+              <div class="select-shell">
+                <select class="voice-select" [value]="state.providerId" (change)="onProviderChange($event)">
+                  @for (provider of state.providers; track provider.id) {
+                    <option [value]="provider.id" [disabled]="!provider.available">
+                      {{ provider.label }}{{ provider.available ? '' : ' (Not Configured)' }}
+                    </option>
+                  }
+                </select>
+                <app-reader-icon name="chevron-down" [size]="14" class="select-icon"></app-reader-icon>
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="control">
+          <label>Voice</label>
+          <div class="control-right">
+            <div class="select-shell">
+              <select class="voice-select" [value]="state.selectedVoiceId || ''" (change)="onVoiceChange($event)" [disabled]="state.loadingVoices">
+                @if (!state.voices.length) {
+                  <option value="">No voices available</option>
+                }
+                @for (voice of state.voices; track voice.id) {
+                  <option [value]="voice.id">{{ voice.name }} ({{ voice.lang || 'default' }})</option>
+                }
+              </select>
+              <app-reader-icon name="chevron-down" [size]="14" class="select-icon"></app-reader-icon>
+            </div>
+          </div>
+        </div>
+
+        <div class="control">
+          <label>Speed</label>
+          <div class="control-right">
+            <div class="stepper">
+              <button (click)="onDecreaseRate()" title="Slower">−</button>
+              <span>{{ state.rate | number:'1.1-1' }}x</span>
+              <button (click)="onIncreaseRate()" title="Faster">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-header">Playback</div>
+        <div class="transport-controls">
+          <button class="transport-btn" (click)="onPrevious()" title="Previous">
+            <app-reader-icon name="chevron-left" [size]="18"></app-reader-icon>
+          </button>
+          <button class="transport-btn primary" (click)="onTogglePlayPause()" [title]="state.isPlaying && !state.isPaused ? 'Pause' : 'Play'">
+            <app-reader-icon [name]="state.isPlaying && !state.isPaused ? 'pause' : 'play'" [size]="18"></app-reader-icon>
+          </button>
+          <button class="transport-btn" (click)="onStop()" title="Stop">
+            <app-reader-icon name="stop" [size]="16"></app-reader-icon>
+          </button>
+          <button class="transport-btn" (click)="onNext()" title="Next">
+            <app-reader-icon name="chevron-right" [size]="18"></app-reader-icon>
+          </button>
+        </div>
+
+        @if (state.loadingVoices) {
+          <div class="tts-message">Loading voices...</div>
+        }
+        @if (state.error) {
+          <div class="tts-error">{{ state.error }}</div>
+        }
+      }
+    </div>
+  </div>
+</div>
