@@ -119,6 +119,7 @@ export class ReaderTtsService {
 
   private voicesChangedHandler?: () => void;
   private initialized = false;
+  private voicesLoadGeneration = 0;
   private playbackGeneration = 0;
   private currentSegments: TtsSegment[] = [];
   private currentSegmentIndex = 0;
@@ -269,6 +270,13 @@ export class ReaderTtsService {
     this.persistSelectedVoice(this.currentState.providerId, voiceId);
   }
 
+  refreshVoicesForCurrentProvider(): void {
+    if (!this.currentState.supported) {
+      return;
+    }
+    void this.loadVoices();
+  }
+
   private async bootstrap(): Promise<void> {
     await this.loadProviders();
     await this.loadVoices();
@@ -307,20 +315,25 @@ export class ReaderTtsService {
   }
 
   private async loadVoices(): Promise<void> {
+    const generation = ++this.voicesLoadGeneration;
     const providerId = this.currentState.providerId;
 
     this.patchState({loadingVoices: true, error: null});
     if (providerId === this.browserProviderId) {
-      this.loadBrowserVoices();
+      this.loadBrowserVoices(providerId, generation);
       return;
     }
 
-    await this.loadCloudVoices(providerId);
+    await this.loadCloudVoices(providerId, generation);
   }
 
-  private async loadCloudVoices(providerId: string): Promise<void> {
+  private async loadCloudVoices(providerId: string, generation: number): Promise<void> {
     try {
       const response = await firstValueFrom(this.cloudApi.getVoices(providerId));
+      if (!this.isVoiceLoadCurrent(providerId, generation)) {
+        return;
+      }
+
       const mapped = response.voices
         .map(voice => this.mapCloudVoice(providerId, voice))
         .sort((a, b) =>
@@ -354,6 +367,10 @@ export class ReaderTtsService {
         error: uniqueVoices.length ? null : 'No cloud voices are available for this provider.'
       });
     } catch {
+      if (!this.isVoiceLoadCurrent(providerId, generation)) {
+        return;
+      }
+
       this.patchState({
         voices: [],
         selectedVoiceId: null,
@@ -363,7 +380,11 @@ export class ReaderTtsService {
     }
   }
 
-  private loadBrowserVoices(): void {
+  private loadBrowserVoices(providerId: string, generation: number): void {
+    if (!this.isVoiceLoadCurrent(providerId, generation)) {
+      return;
+    }
+
     if (!this.speech) {
       this.patchState({
         voices: [],
@@ -406,6 +427,10 @@ export class ReaderTtsService {
       loadingVoices: false,
       error: null
     });
+  }
+
+  private isVoiceLoadCurrent(providerId: string, generation: number): boolean {
+    return generation === this.voicesLoadGeneration && providerId === this.currentState.providerId;
   }
 
   private async startFromCurrentInternal(): Promise<void> {

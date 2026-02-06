@@ -1,4 +1,4 @@
-import {Component, EventEmitter, Output, inject} from '@angular/core';
+import {Component, EventEmitter, OnInit, Output, inject} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {ReaderIconComponent} from '../../shared/icon.component';
 import {ReaderTtsService} from '../../features/tts/tts.service';
@@ -10,10 +10,14 @@ import {ReaderTtsService} from '../../features/tts/tts.service';
   templateUrl: './tts-panel.component.html',
   styleUrl: './tts-panel.component.scss'
 })
-export class ReaderTtsPanelComponent {
+export class ReaderTtsPanelComponent implements OnInit {
   private ttsService = inject(ReaderTtsService);
 
   @Output() close = new EventEmitter<void>();
+
+  ngOnInit(): void {
+    this.ttsService.refreshVoicesForCurrentProvider();
+  }
 
   get state() {
     return this.ttsService.currentState;
