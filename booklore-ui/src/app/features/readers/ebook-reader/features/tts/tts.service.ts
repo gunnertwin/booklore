@@ -129,6 +129,7 @@ export class ReaderTtsService {
   private voicesLoadGeneration = 0;
   private playbackGeneration = 0;
   private browserPauseToken = 0;
+  private hasResumableCloudAudio = false;
   private currentSegments: TtsSegment[] = [];
   private currentSegmentIndex = 0;
   private activeAudioUrl: string | null = null;
@@ -709,10 +710,12 @@ export class ReaderTtsService {
 
     this.activeAudioUrl = URL.createObjectURL(blob);
     audio.src = this.activeAudioUrl;
+    this.hasResumableCloudAudio = true;
 
     await new Promise<void>((resolve, reject) => {
       const rejectPending = (reason?: unknown) => {
         cleanup();
+        this.hasResumableCloudAudio = false;
         if (reason instanceof Error) {
           reject(reason);
           return;
@@ -732,10 +735,12 @@ export class ReaderTtsService {
 
       audio.onended = () => {
         cleanup();
+        this.hasResumableCloudAudio = false;
         resolve();
       };
 
       audio.onerror = () => {
+        this.hasResumableCloudAudio = false;
         rejectPending(new Error('Cloud audio playback failed'));
       };
 
@@ -1146,9 +1151,14 @@ export class ReaderTtsService {
     }
 
     this.browserPauseToken += 1;
+    const canResumeInPlace = this.speech.paused && this.speech.speaking;
     this.speech.resume();
     const generation = this.playbackGeneration;
     this.patchState({isPlaying: true, isPaused: false, error: null});
+    if (!canResumeInPlace) {
+      this.speakCurrentSegment(generation);
+      return;
+    }
     void this.ensureBrowserResumeApplied(generation);
   }
 
@@ -1170,8 +1180,21 @@ export class ReaderTtsService {
       return false;
     }
 
+    if (!this.hasResumableCloudAudio) {
+      return false;
+    }
+
     const src = this.audioElement.currentSrc || this.audioElement.src;
-    return !!src;
+    if (!src || this.audioElement.ended) {
+      return false;
+    }
+
+    const duration = this.audioElement.duration;
+    if (Number.isFinite(duration) && duration > 0 && this.audioElement.currentTime >= duration) {
+      return false;
+    }
+
+    return true;
   }
 
   private async advanceToAdjacentSection(direction: 'next' | 'prev'): Promise<boolean> {
@@ -1387,6 +1410,7 @@ export class ReaderTtsService {
       this.audioElement.onerror = null;
       this.audioElement.pause();
       this.audioElement.src = '';
+      this.hasResumableCloudAudio = false;
     }
     this.releaseActiveAudioUrl();
   }
