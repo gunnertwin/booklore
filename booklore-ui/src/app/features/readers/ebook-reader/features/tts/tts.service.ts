@@ -754,14 +754,23 @@ export class ReaderTtsService {
     }
 
     if (this.currentState.isPaused) {
-      void this.audioElement.play()
-        .then(() => this.patchState({isPaused: false, error: null}))
-        .catch(() => this.handleError('Unable to resume cloud audio playback.'));
+      if (this.canResumeCloudAudio()) {
+        void this.audioElement.play()
+          .then(() => this.patchState({isPlaying: true, isPaused: false, error: null}))
+          .catch(() => this.handleError('Unable to resume cloud audio playback.'));
+        return;
+      }
+
+      const generation = this.playbackGeneration;
+      this.patchState({isPlaying: true, isPaused: false, error: null});
+      this.speakCurrentSegment(generation);
       return;
     }
 
+    // Invalidate in-flight cloud synth/play tasks so pause is immediate and sticky.
+    this.playbackGeneration += 1;
     this.audioElement.pause();
-    this.patchState({isPaused: true, error: null});
+    this.patchState({isPlaying: true, isPaused: true, error: null});
   }
 
   private advanceToNextChunk(generation: number): void {
@@ -1137,15 +1146,32 @@ export class ReaderTtsService {
     }
 
     this.browserPauseToken += 1;
-    if (this.speech.paused && this.speech.speaking) {
-      this.speech.resume();
-      this.patchState({isPlaying: true, isPaused: false, error: null});
+    this.speech.resume();
+    const generation = this.playbackGeneration;
+    this.patchState({isPlaying: true, isPaused: false, error: null});
+    void this.ensureBrowserResumeApplied(generation);
+  }
+
+  private async ensureBrowserResumeApplied(generation: number): Promise<void> {
+    await this.sleep(120);
+    if (generation !== this.playbackGeneration || this.currentState.isPaused || !this.speech) {
       return;
     }
 
-    const generation = this.playbackGeneration;
-    this.patchState({isPlaying: true, isPaused: false, error: null});
+    if (this.speech.speaking || this.speech.pending) {
+      return;
+    }
+
     this.speakCurrentSegment(generation);
+  }
+
+  private canResumeCloudAudio(): boolean {
+    if (!this.audioElement) {
+      return false;
+    }
+
+    const src = this.audioElement.currentSrc || this.audioElement.src;
+    return !!src;
   }
 
   private async advanceToAdjacentSection(direction: 'next' | 'prev'): Promise<boolean> {
