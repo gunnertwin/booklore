@@ -164,6 +164,10 @@ export class ReaderEventService {
       this.handleSelectionEnd(doc, 'user');
     });
 
+    doc.addEventListener('keydown', () => {
+      this.lastUserInteractionTime = Date.now();
+    }, true);
+
     doc.addEventListener('click', (event: MouseEvent) => {
       // Ignore synthesized mouse events that follow touch events
       if (Date.now() - this.lastTouchTime < 500) {

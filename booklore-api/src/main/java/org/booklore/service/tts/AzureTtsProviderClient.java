@@ -119,6 +119,7 @@ public class AzureTtsProviderClient implements TtsProviderClient {
     public TtsSynthesisResult synthesize(String text, String voiceId, String language, double rate) {
         String resolvedVoice = StringUtils.hasText(voiceId) ? voiceId : properties.getAzure().getDefaultVoice();
         String resolvedLanguage = StringUtils.hasText(language) ? language : inferLanguageFromVoice(resolvedVoice);
+        String contentType = resolveContentType(properties.getAzure().getOutputFormat());
 
         String ssml = buildSsml(text, resolvedVoice, resolvedLanguage, rate);
 
@@ -127,12 +128,12 @@ public class AzureTtsProviderClient implements TtsProviderClient {
                 .header("Ocp-Apim-Subscription-Key", properties.getAzure().getApiKey())
                 .header("X-Microsoft-OutputFormat", properties.getAzure().getOutputFormat())
                 .header("User-Agent", "Booklore-TTS")
-                .header("Accept", "audio/mpeg")
+                .header("Accept", contentType)
                 .header("Content-Type", "application/ssml+xml")
                 .body(ssml)
                 .retrieve()
                 .body(byte[].class);
-        return new TtsSynthesisResult(audio, "audio/mpeg");
+        return new TtsSynthesisResult(audio, contentType);
     }
 
     private String buildSsml(String text, String voiceName, String language, double rate) {
@@ -208,6 +209,24 @@ public class AzureTtsProviderClient implements TtsProviderClient {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
         return trimmed;
+    }
+
+    private String resolveContentType(String outputFormat) {
+        if (!StringUtils.hasText(outputFormat)) {
+            return "audio/mpeg";
+        }
+
+        String format = outputFormat.toLowerCase(Locale.ROOT);
+        if (format.contains("riff") || format.contains("wav")) {
+            return "audio/wav";
+        }
+        if (format.contains("ogg")) {
+            return "audio/ogg";
+        }
+        if (format.contains("webm")) {
+            return "audio/webm";
+        }
+        return "audio/mpeg";
     }
 
     private String escapeXml(String value) {

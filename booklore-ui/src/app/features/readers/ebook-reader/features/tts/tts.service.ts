@@ -131,6 +131,7 @@ export class ReaderTtsService {
   private currentSegments: TtsSegment[] = [];
   private currentSegmentIndex = 0;
   private activeAudioUrl: string | null = null;
+  private pendingCloudPlaybackReject: ((reason?: unknown) => void) | null = null;
   private lastChunkSignature: string | null = null;
 
   constructor() {
@@ -517,9 +518,8 @@ export class ReaderTtsService {
   private async jumpParagraph(direction: 'next' | 'prev'): Promise<void> {
     try {
       await this.ensureReady();
-      const ssml = direction === 'next'
-        ? await this.resolveNextSsml()
-        : await this.resolvePreviousSsml();
+      const currentParagraphKey = this.getCurrentParagraphKey();
+      const ssml = await this.resolveParagraphSsml(direction, currentParagraphKey);
       this.startFromSsml(ssml);
     } catch {
       this.handleError('Unable to change TTS position.');
@@ -695,10 +695,24 @@ export class ReaderTtsService {
     audio.src = this.activeAudioUrl;
 
     await new Promise<void>((resolve, reject) => {
+      const rejectPending = (reason?: unknown) => {
+        cleanup();
+        if (reason instanceof Error) {
+          reject(reason);
+          return;
+        }
+        reject(new Error('Cloud audio playback canceled'));
+      };
+
       const cleanup = () => {
+        if (this.pendingCloudPlaybackReject === rejectPending) {
+          this.pendingCloudPlaybackReject = null;
+        }
         audio.onended = null;
         audio.onerror = null;
       };
+
+      this.pendingCloudPlaybackReject = rejectPending;
 
       audio.onended = () => {
         cleanup();
@@ -706,15 +720,13 @@ export class ReaderTtsService {
       };
 
       audio.onerror = () => {
-        cleanup();
-        reject(new Error('Cloud audio playback failed'));
+        rejectPending(new Error('Cloud audio playback failed'));
       };
 
       const playPromise = audio.play();
       if (playPromise) {
         playPromise.catch(err => {
-          cleanup();
-          reject(err);
+          rejectPending(err);
         });
       }
     });
@@ -876,19 +888,25 @@ export class ReaderTtsService {
   }
 
   private shouldMergeWithPrevious(previousText: string, nextText: string): boolean {
-    if (!this.endsWithTerminalPunctuation(previousText)) {
+    const previousEndsSentence = this.endsWithTerminalPunctuation(previousText)
+      && !this.endsWithAbbreviation(previousText);
+
+    if (!previousEndsSentence) {
       return true;
     }
 
-    if (this.endsWithAbbreviation(previousText)) {
+    // Keep punctuation-only tails attached to the previous segment.
+    if (/^[,;:)\]\}]/.test(nextText)) {
       return true;
     }
 
-    if (/^[,;:.!?)]/.test(nextText)) {
+    // Preserve short numeric continuations (years, enumerations) when segmentation splits awkwardly.
+    if (nextText.length <= this.minStandaloneSegmentCharacters && /^\d/.test(nextText)) {
       return true;
     }
 
-    if (nextText.length <= this.minStandaloneSegmentCharacters && /^[0-9a-z(]/i.test(nextText)) {
+    // Allow very short lowercase continuations, but keep full sentence boundaries intact.
+    if (nextText.length <= 8 && /^[a-z(]/.test(nextText)) {
       return true;
     }
 
@@ -987,6 +1005,73 @@ export class ReaderTtsService {
     }
 
     return restarted;
+  }
+
+  private async resolveParagraphSsml(
+    direction: 'next' | 'prev',
+    currentParagraphKey: string | null
+  ): Promise<string | undefined> {
+    const resolveStep = direction === 'next'
+      ? () => this.resolveNextSsml()
+      : () => this.resolvePreviousSsml();
+
+    let candidate = await resolveStep();
+    if (!candidate || !currentParagraphKey) {
+      return candidate;
+    }
+
+    const maxParagraphHopAttempts = 120;
+    for (let attempt = 0; attempt < maxParagraphHopAttempts && candidate; attempt++) {
+      const candidateParagraphKey = this.extractParagraphKeyFromSsml(candidate);
+      if (!candidateParagraphKey || candidateParagraphKey !== currentParagraphKey) {
+        return candidate;
+      }
+      candidate = await resolveStep();
+    }
+
+    return candidate;
+  }
+
+  private getCurrentParagraphKey(): string | null {
+    const currentMark = this.currentSegments[this.currentSegmentIndex]?.mark
+      ?? this.currentSegments.find(segment => segment.mark)?.mark
+      ?? null;
+    return this.toParagraphKey(currentMark);
+  }
+
+  private extractParagraphKeyFromSsml(ssml: string): string | null {
+    const markMatch = ssml.match(/<mark[^>]*name=(["'])(.*?)\1/i);
+    if (markMatch?.[2]) {
+      return this.toParagraphKey(markMatch[2]);
+    }
+
+    const segments = this.parseSsmlSegments(ssml);
+    return this.toParagraphKey(segments.find(segment => segment.mark)?.mark ?? null);
+  }
+
+  private toParagraphKey(mark: string | null): string | null {
+    if (!mark) {
+      return null;
+    }
+
+    let normalized = mark.trim();
+    if (!normalized) {
+      return null;
+    }
+
+    if (normalized.startsWith('epubcfi(') && normalized.endsWith(')')) {
+      normalized = normalized.slice(8, -1);
+    }
+
+    const commaIndex = normalized.indexOf(',');
+    if (commaIndex >= 0) {
+      normalized = normalized.slice(0, commaIndex);
+    }
+
+    normalized = normalized.replace(/:\d+$/, '');
+    normalized = normalized.replace(/\[[^\]]*]/g, '');
+
+    return normalized || null;
   }
 
   private async jumpToNextSentence(): Promise<void> {
@@ -1239,6 +1324,8 @@ export class ReaderTtsService {
       this.speech.cancel();
     }
 
+    this.cancelPendingCloudPlayback();
+
     if (this.audioElement) {
       this.audioElement.onended = null;
       this.audioElement.onerror = null;
@@ -1246,6 +1333,15 @@ export class ReaderTtsService {
       this.audioElement.src = '';
     }
     this.releaseActiveAudioUrl();
+  }
+
+  private cancelPendingCloudPlayback(): void {
+    const pendingReject = this.pendingCloudPlaybackReject;
+    if (!pendingReject) {
+      return;
+    }
+    this.pendingCloudPlaybackReject = null;
+    pendingReject(new Error('Cloud audio playback canceled'));
   }
 
   private releaseActiveAudioUrl(): void {

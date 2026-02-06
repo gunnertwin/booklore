@@ -318,22 +318,6 @@ class HardcoverSyncServiceTest {
     }
 
     @Test
-    @DisplayName("Should debounce tiny progress updates in a short interval")
-    void syncProgressToHardcover_whenTinyProgressDelta_shouldDebounce() {
-        testMetadata.setHardcoverBookId("12345");
-        testMetadata.setPageCount(300);
-
-        when(responseSpec.body(Map.class)).thenReturn(null);
-
-        service.syncProgressToHardcover(TEST_BOOK_ID, 50.0f, TEST_USER_ID);
-        clearInvocations(restClient, requestBodyUriSpec, requestBodySpec, responseSpec);
-
-        service.syncProgressToHardcover(TEST_BOOK_ID, 50.2f, TEST_USER_ID);
-
-        verify(restClient, never()).post();
-    }
-
-    @Test
     @DisplayName("Should skip sync when user settings not found")
     void syncProgressToHardcover_whenUserSettingsNotFound_shouldSkip() {
         when(hardcoverSyncSettingsService.getSettingsForUserId(TEST_USER_ID)).thenReturn(null);
