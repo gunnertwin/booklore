@@ -33,8 +33,6 @@ export type ReaderIconName =
   | 'auto-fit'
   | 'fullscreen'
   | 'fullscreen-exit'
-  | 'play'
-  | 'pause'
   | 'help'
   | 'long-strip'
   | 'direction-ltr'
@@ -186,13 +184,6 @@ const ICONS: Record<ReaderIconName, IconPath[]> = {
     {d: 'M21 8h-3a2 2 0 0 1-2-2V3'},
     {d: 'M3 16h3a2 2 0 0 1 2 2v3'},
     {d: 'M16 21v-3a2 2 0 0 1 2-2h3'}
-  ],
-  'play': [
-    {d: 'M5 3l14 9-14 9V3z'}
-  ],
-  'pause': [
-    {d: 'M6,4 L6,20', type: 'line'},
-    {d: 'M18,4 L18,20', type: 'line'}
   ],
   'help': [
     {d: 'M12 12m-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0', type: 'path'},
