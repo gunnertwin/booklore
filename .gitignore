@@ -43,8 +43,6 @@ local/
 local-scripts/
 
 ### Dev config, books, and data ###
-.env
-.tmp/
 booklore-ui/test-results/
 booklore-api/src/main/resources/application-local.yaml
 /shared/
