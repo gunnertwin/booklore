@@ -13,12 +13,6 @@ interface TtsSegment {
   lang?: string;
 }
 
-interface ParagraphJumpTarget {
-  segments: TtsSegment[];
-  segmentIndex: number;
-  signature: string;
-}
-
 export interface ReaderTtsVoice {
   id: string;
   name: string;
@@ -524,24 +518,10 @@ export class ReaderTtsService {
   private async jumpParagraph(direction: 'next' | 'prev'): Promise<void> {
     try {
       await this.ensureReady();
-      const currentParagraphKey = this.getCurrentParagraphKey();
-      const currentChunkTarget = this.findParagraphTargetInCurrentChunk(direction, currentParagraphKey);
-      if (currentChunkTarget != null) {
-        this.seekToSegmentInCurrentChunk(currentChunkTarget);
-        return;
-      }
-
-      const adjacentChunkTarget = await this.resolveParagraphTargetFromAdjacentChunks(direction, currentParagraphKey);
-      if (!adjacentChunkTarget) {
-        this.startFromSsml(undefined);
-        return;
-      }
-
-      this.startFromSegments(
-        adjacentChunkTarget.segments,
-        adjacentChunkTarget.segmentIndex,
-        adjacentChunkTarget.signature
-      );
+      const ssml = direction === 'next'
+        ? await this.resolveNextSsml()
+        : await this.resolvePreviousSsml();
+      this.startFromSsml(ssml);
     } catch {
       this.handleError('Unable to change TTS position.');
     }
@@ -576,20 +556,6 @@ export class ReaderTtsService {
     this.currentSegments = segments;
     this.currentSegmentIndex = clampedIndex;
 
-    const generation = this.playbackGeneration;
-    this.patchState({isPlaying: true, isPaused: false, error: null});
-    this.speakCurrentSegment(generation);
-  }
-
-  private seekToSegmentInCurrentChunk(segmentIndex: number): void {
-    if (!this.currentSegments.length) {
-      this.startFromSsml(undefined);
-      return;
-    }
-
-    const clampedIndex = Math.max(0, Math.min(segmentIndex, this.currentSegments.length - 1));
-    this.cancelSpeech(true, false);
-    this.currentSegmentIndex = clampedIndex;
     const generation = this.playbackGeneration;
     this.patchState({isPlaying: true, isPaused: false, error: null});
     this.speakCurrentSegment(generation);
@@ -1043,240 +1009,6 @@ export class ReaderTtsService {
     return restarted;
   }
 
-  private async resolveParagraphTargetFromAdjacentChunks(
-    direction: 'next' | 'prev',
-    currentParagraphKey: string | null
-  ): Promise<ParagraphJumpTarget | null> {
-    const resolveStep = direction === 'next'
-      ? () => this.resolveNextSsml()
-      : () => this.resolvePreviousSsml();
-
-    const maxParagraphHopAttempts = 120;
-    for (let attempt = 0; attempt < maxParagraphHopAttempts; attempt++) {
-      const candidate = await resolveStep();
-      if (!candidate) {
-        return null;
-      }
-
-      const segments = this.parseSsmlSegments(candidate);
-      if (!segments.length) {
-        continue;
-      }
-
-      const segmentIndex = this.findParagraphTargetInCandidate(
-        segments,
-        direction,
-        currentParagraphKey
-      );
-      if (segmentIndex != null) {
-        return {
-          segments,
-          segmentIndex,
-          signature: this.getSsmlSignature(candidate)
-        };
-      }
-    }
-
-    return null;
-  }
-
-  private getCurrentParagraphKey(): string | null {
-    const currentMark = this.currentSegments[this.currentSegmentIndex]?.mark
-      ?? this.currentSegments.find(segment => segment.mark)?.mark
-      ?? null;
-    return this.toParagraphKey(currentMark);
-  }
-
-  private findParagraphTargetInCurrentChunk(
-    direction: 'next' | 'prev',
-    currentParagraphKey: string | null
-  ): number | null {
-    if (!this.currentSegments.length) {
-      return null;
-    }
-
-    const keys = this.getEffectiveParagraphKeys(this.currentSegments);
-    const currentIndex = Math.max(0, Math.min(this.currentSegmentIndex, this.currentSegments.length - 1));
-    const activeKey = currentParagraphKey ?? keys[currentIndex];
-
-    if (direction === 'next') {
-      return this.findNextParagraphStartInKeys(keys, currentIndex, activeKey);
-    }
-
-    return this.findPreviousParagraphStartInKeys(keys, currentIndex, activeKey);
-  }
-
-  private findParagraphTargetInCandidate(
-    segments: TtsSegment[],
-    direction: 'next' | 'prev',
-    currentParagraphKey: string | null
-  ): number | null {
-    const keys = this.getEffectiveParagraphKeys(segments);
-    const hasParagraphKeys = keys.some(key => key != null);
-
-    if (direction === 'next') {
-      if (currentParagraphKey == null) {
-        return 0;
-      }
-
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if (key && key !== currentParagraphKey) {
-          return i;
-        }
-      }
-
-      return hasParagraphKeys ? null : 0;
-    }
-
-    if (currentParagraphKey == null) {
-      return this.findLastParagraphStartInKeys(keys);
-    }
-
-    for (let i = keys.length - 1; i >= 0; i--) {
-      const key = keys[i];
-      if (key && key !== currentParagraphKey) {
-        let start = i;
-        while (start > 0 && keys[start - 1] === key) {
-          start -= 1;
-        }
-        return start;
-      }
-    }
-
-    return hasParagraphKeys ? null : this.findLastParagraphStartInKeys(keys);
-  }
-
-  private getEffectiveParagraphKeys(segments: TtsSegment[]): Array<string | null> {
-    const keys = segments.map(segment => this.toParagraphKey(segment.mark));
-    let previousKey: string | null = null;
-
-    for (let i = 0; i < keys.length; i++) {
-      if (keys[i]) {
-        previousKey = keys[i];
-      } else if (previousKey) {
-        keys[i] = previousKey;
-      }
-    }
-
-    let nextKey: string | null = null;
-    for (let i = keys.length - 1; i >= 0; i--) {
-      if (keys[i]) {
-        nextKey = keys[i];
-      } else if (nextKey) {
-        keys[i] = nextKey;
-      }
-    }
-
-    return keys;
-  }
-
-  private findNextParagraphStartInKeys(
-    keys: Array<string | null>,
-    currentIndex: number,
-    currentParagraphKey: string | null
-  ): number | null {
-    const startIndex = Math.max(0, currentIndex + 1);
-    if (startIndex >= keys.length) {
-      return null;
-    }
-
-    if (!currentParagraphKey) {
-      return startIndex;
-    }
-
-    for (let i = startIndex; i < keys.length; i++) {
-      const key = keys[i];
-      if (key && key !== currentParagraphKey) {
-        return i;
-      }
-    }
-
-    return null;
-  }
-
-  private findPreviousParagraphStartInKeys(
-    keys: Array<string | null>,
-    currentIndex: number,
-    currentParagraphKey: string | null
-  ): number | null {
-    const startIndex = Math.min(currentIndex - 1, keys.length - 1);
-    if (startIndex < 0) {
-      return null;
-    }
-
-    if (!currentParagraphKey) {
-      return startIndex;
-    }
-
-    for (let i = startIndex; i >= 0; i--) {
-      const key = keys[i];
-      if (key && key !== currentParagraphKey) {
-        let paragraphStart = i;
-        while (paragraphStart > 0 && keys[paragraphStart - 1] === key) {
-          paragraphStart -= 1;
-        }
-        return paragraphStart;
-      }
-    }
-
-    return null;
-  }
-
-  private findLastParagraphStartInKeys(keys: Array<string | null>): number | null {
-    if (!keys.length) {
-      return null;
-    }
-
-    const lastIndex = keys.length - 1;
-    const lastKey = keys[lastIndex];
-    if (!lastKey) {
-      return lastIndex;
-    }
-
-    let paragraphStart = lastIndex;
-    while (paragraphStart > 0 && keys[paragraphStart - 1] === lastKey) {
-      paragraphStart -= 1;
-    }
-
-    return paragraphStart;
-  }
-
-  private toParagraphKey(mark: string | null): string | null {
-    if (!mark) {
-      return null;
-    }
-
-    let normalized = mark.trim();
-    if (!normalized) {
-      return null;
-    }
-
-    if (normalized.startsWith('epubcfi(') && normalized.endsWith(')')) {
-      normalized = normalized.slice(8, -1);
-    }
-
-    const parts = normalized.split(',');
-    if (parts.length >= 2) {
-      const parentPath = parts[0].trim();
-      const startRef = parts[1].trim();
-      const startPath = startRef.replace(/:\d+$/, '');
-
-      if (startPath.startsWith('/')) {
-        return `${parentPath}${startPath}`;
-      }
-
-      if (startPath) {
-        return `${parentPath}/${startPath}`;
-      }
-
-      return parentPath || null;
-    }
-
-    normalized = normalized.replace(/:\d+$/, '');
-
-    return normalized || null;
-  }
 
   private async jumpToNextSentence(): Promise<void> {
     if (this.currentSegments.length && this.currentSegmentIndex < this.currentSegments.length - 1) {

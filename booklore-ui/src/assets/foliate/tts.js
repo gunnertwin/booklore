@@ -11,6 +11,11 @@ const blockTags = new Set([
     'main', 'math', 'nav', 'ol', 'p', 'pre', 'section', 'tr',
 ])
 
+const paragraphLikeTags = new Set([
+    'p', 'blockquote', 'li', 'dt', 'dd', 'figcaption', 'caption',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'tr',
+])
+
 const getLang = el => {
     const x = el.lang || el?.getAttributeNS?.(NS.XML, 'lang')
     return x ? x : el.parentElement ? getLang(el.parentElement) : null
@@ -120,25 +125,48 @@ const getFragmentWithMarks = (range, textWalker, granularity) => {
 
 const rangeIsEmpty = range => !range.toString().trim()
 
-function* getBlocks(doc) {
+const collectBlocks = (doc, tags) => {
+    const ranges = []
     let last
     const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT)
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         const name = node.tagName.toLowerCase()
-        if (blockTags.has(name)) {
+        if (tags.has(name)) {
             if (last) {
                 last.setEndBefore(node)
-                if (!rangeIsEmpty(last)) yield last
+                if (!rangeIsEmpty(last)) ranges.push(last)
             }
             last = doc.createRange()
             last.setStart(node, 0)
         }
     }
-    if (!last) {
-        last = doc.createRange()
-        last.setStart(doc.body.firstChild ?? doc.body, 0)
-    }
+    if (!last) return ranges
     last.setEndAfter(doc.body.lastChild ?? doc.body)
+    if (!rangeIsEmpty(last)) ranges.push(last)
+    return ranges
+}
+
+function* getBlocks(doc) {
+    const preferred = collectBlocks(doc, paragraphLikeTags)
+    if (preferred.length) {
+        for (const range of preferred) yield range
+        return
+    }
+
+    const fallback = collectBlocks(doc, blockTags)
+    if (fallback.length) {
+        for (const range of fallback) yield range
+        return
+    }
+
+    const last = doc.createRange()
+    if (!doc.body.firstChild) {
+        last.setStart(doc.body, 0)
+        last.setEnd(doc.body, 0)
+    } else {
+        last.setStart(doc.body.firstChild, 0)
+        last.setEndAfter(doc.body.lastChild ?? doc.body)
+    }
     if (!rangeIsEmpty(last)) yield last
 }
 
