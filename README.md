@@ -227,6 +227,21 @@ DB_PASSWORD=ChangeMe_BookLoreApp_2025!
 # 💾 Storage type: LOCAL (default) or NETWORK. Set to NETWORK if using NFS/SMB - this disables file reorganization features to prevent data corruption.
 DISK_TYPE=LOCAL
 
+# 🔊 Optional Cloud Text-to-Speech (Read Aloud)
+# Leave provider flags disabled to use browser voices only.
+TTS_ENABLED=true
+TTS_MAX_TEXT_LENGTH=1800
+TTS_AZURE_ENABLED=false
+TTS_AZURE_API_KEY=
+TTS_AZURE_REGION=
+TTS_AZURE_DEFAULT_VOICE=en-US-AvaNeural
+TTS_GOOGLE_ENABLED=false
+TTS_GOOGLE_API_KEY=
+TTS_GOOGLE_DEFAULT_VOICE=en-US-Neural2-F
+TTS_PIPER_ENABLED=false
+TTS_PIPER_BASE_URL=http://piper:5000
+TTS_PIPER_DEFAULT_VOICE=
+
 # 🔧 MariaDB Container Settings
 DB_USER_ID=1000
 DB_GROUP_ID=1000
@@ -253,6 +268,18 @@ services:
       - DATABASE_USERNAME=${DB_USER}
       - DATABASE_PASSWORD=${DB_PASSWORD}
       - BOOKLORE_PORT=${BOOKLORE_PORT}
+      - TTS_ENABLED=${TTS_ENABLED}
+      - TTS_MAX_TEXT_LENGTH=${TTS_MAX_TEXT_LENGTH}
+      - TTS_AZURE_ENABLED=${TTS_AZURE_ENABLED}
+      - TTS_AZURE_API_KEY=${TTS_AZURE_API_KEY}
+      - TTS_AZURE_REGION=${TTS_AZURE_REGION}
+      - TTS_AZURE_DEFAULT_VOICE=${TTS_AZURE_DEFAULT_VOICE}
+      - TTS_GOOGLE_ENABLED=${TTS_GOOGLE_ENABLED}
+      - TTS_GOOGLE_API_KEY=${TTS_GOOGLE_API_KEY}
+      - TTS_GOOGLE_DEFAULT_VOICE=${TTS_GOOGLE_DEFAULT_VOICE}
+      - TTS_PIPER_ENABLED=${TTS_PIPER_ENABLED}
+      - TTS_PIPER_BASE_URL=${TTS_PIPER_BASE_URL}
+      - TTS_PIPER_DEFAULT_VOICE=${TTS_PIPER_DEFAULT_VOICE}
     depends_on:
       mariadb:
         condition: service_healthy
