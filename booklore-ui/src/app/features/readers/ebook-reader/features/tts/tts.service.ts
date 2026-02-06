@@ -1063,13 +1063,24 @@ export class ReaderTtsService {
       normalized = normalized.slice(8, -1);
     }
 
-    const commaIndex = normalized.indexOf(',');
-    if (commaIndex >= 0) {
-      normalized = normalized.slice(0, commaIndex);
+    const parts = normalized.split(',');
+    if (parts.length >= 2) {
+      const parentPath = parts[0].trim();
+      const startRef = parts[1].trim();
+      const startPath = startRef.replace(/:\d+$/, '');
+
+      if (startPath.startsWith('/')) {
+        return `${parentPath}${startPath}`;
+      }
+
+      if (startPath) {
+        return `${parentPath}/${startPath}`;
+      }
+
+      return parentPath || null;
     }
 
     normalized = normalized.replace(/:\d+$/, '');
-    normalized = normalized.replace(/\[[^\]]*]/g, '');
 
     return normalized || null;
   }
